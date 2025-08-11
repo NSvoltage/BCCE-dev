@@ -1,0 +1,21 @@
+# Global code owners
+* @namansharma
+
+# CLI and core functionality
+/cli/ @namansharma
+/workflows/ @namansharma
+
+# Documentation
+/docs/ @namansharma
+README.md @namansharma
+CONTRIBUTING.md @namansharma
+
+# Infrastructure and Go tools
+/go-tools/ @namansharma
+/iac/ @namansharma
+Makefile @namansharma
+
+# Security-sensitive areas require additional review
+/cli/src/commands/doctor/ @namansharma
+/go-tools/credproc/ @namansharma
+/policies/ @namansharma

@@ -1,0 +1,71 @@
+version: 1
+workflow: "Code refactoring & dependency upgrade"
+model: ${BEDROCK_MODEL_ID}
+guardrails: ["pii-basic", "secrets-default"]
+
+env:
+  max_runtime_seconds: 2400
+  artifacts_dir: .bcce_runs/${RUN_ID}
+
+steps:
+  - id: analyze_codebase
+    type: prompt
+    prompt_file: refactor-prompt.md
+    available_tools: [ReadFile, Search]
+    inputs:
+      paths: ["src/**", "lib/**", "app/**", "package.json", "requirements.txt", "go.mod", "pom.xml", "Cargo.toml"]
+      file_size_limit_kb: 512
+
+  - id: identify_improvements
+    type: agent
+    policy:
+      timeout_seconds: 600
+      max_files: 60
+      max_edits: 1  # Analysis phase only, minimal changes
+      allowed_paths: ["src/**", "lib/**", "app/**", "*.json", "*.txt", "*.toml", "*.xml", "*.yml", "*.yaml"]
+      cmd_allowlist: ["npm", "yarn", "pnpm", "pip", "pip-outdated", "go", "mvn", "gradle", "cargo"]
+    available_tools: [ReadFile, Search, Cmd]
+
+  - id: check_dependencies
+    type: cmd
+    command: "npm outdated || yarn outdated || pip list --outdated || go list -m -u all || mvn versions:display-dependency-updates || cargo outdated || echo 'No dependency check available'"
+    on_error: continue
+
+  - id: plan_refactoring
+    type: agent
+    policy:
+      timeout_seconds: 300
+      max_files: 30
+      max_edits: 1
+      allowed_paths: ["src/**", "lib/**", "app/**"]
+      cmd_allowlist: ["npm", "yarn", "pnpm", "python", "go", "mvn", "gradle", "cargo"]
+    available_tools: [ReadFile, Search]
+
+  - id: implement_improvements
+    type: agent
+    policy:
+      timeout_seconds: 1200
+      max_files: 80
+      max_edits: 50
+      allowed_paths: ["src/**", "lib/**", "app/**", "test/**", "spec/**", "package.json", "requirements.txt", "go.mod", "*.toml", "*.xml"]
+      cmd_allowlist: ["npm", "yarn", "pnpm", "pip", "python", "python3", "go", "mvn", "gradle", "cargo", "jest", "pytest"]
+    available_tools: [ReadFile, Search, Diff, Apply, Cmd]
+
+  - id: run_tests_after_changes
+    type: cmd
+    command: "npm test || yarn test || pnpm test || pytest || python -m pytest || go test ./... || mvn test || gradle test || cargo test"
+    on_error: continue
+
+  - id: final_validation
+    type: agent
+    policy:
+      timeout_seconds: 300
+      max_files: 20
+      max_edits: 5
+      allowed_paths: ["src/**", "lib/**", "app/**", "test/**"]
+      cmd_allowlist: ["npm", "yarn", "pnpm", "python", "pytest", "go", "mvn", "gradle", "cargo"]
+    available_tools: [ReadFile, Search, Cmd, Diff, Apply]
+
+  - id: apply_refactoring
+    type: apply_diff
+    approve: false  # Manual review required for refactoring changes

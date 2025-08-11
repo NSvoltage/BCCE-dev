@@ -1,0 +1,196 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  NODE_VERSION: '20.x'
+  GO_VERSION: '1.22'
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.create_release.outputs.id }}
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Extract version from tag
+      id: version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: BCCE ${{ steps.version.outputs.VERSION }}
+        body: |
+          ## BCCE Release ${{ steps.version.outputs.VERSION }}
+          
+          ### 🚀 New Features
+          - Enhanced model discovery with `bcce models` commands
+          - Future-proof workflow configuration
+          - Enterprise-grade security defaults
+          
+          ### 📦 Assets
+          - Cross-platform binaries (macOS, Linux, Windows)
+          - Go utilities for credential processing
+          - Starter workflow templates
+          
+          ### 📋 Installation
+          ```bash
+          # Download and install
+          curl -L https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/bcce-${{ steps.version.outputs.VERSION }}-linux-amd64.tar.gz | tar xz
+          sudo mv bcce /usr/local/bin/
+          
+          # Verify installation
+          bcce --version
+          ```
+          
+          ### 📚 Documentation
+          - [Enterprise Setup Guide](docs/dev/enterprise-setup.md)
+          - [Model Strategy Guide](docs/dev/model-strategy.md)
+          - [Full Documentation](docs/)
+          
+          ### ✅ Compatibility
+          - AWS Bedrock with Claude models
+          - Node.js 18+ (for development)
+          - Go 1.21+ (for utilities)
+          - Terraform 1.6+ (for infrastructure)
+        draft: false
+        prerelease: false
+
+  build-and-upload:
+    runs-on: ${{ matrix.os }}
+    needs: create-release
+    
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+          - os: ubuntu-latest  
+            goos: linux
+            goarch: arm64
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+          - os: macos-latest
+            goos: darwin  
+            goarch: arm64
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+            
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        
+    - name: Extract version from tag
+      id: version  
+      shell: bash
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      
+    - name: Install dependencies
+      run: make setup
+      
+    - name: Build CLI
+      run: make build-cli
+      
+    - name: Build Go tools for ${{ matrix.goos }}-${{ matrix.goarch }}
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      run: |
+        cd go-tools/credproc && go build -ldflags="-s -w" -o bin/bcce-credproc-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }} .
+        cd ../doctor-probes && go build -ldflags="-s -w" -o bin/bcce-doctor-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }} .
+        
+    - name: Create release archive
+      shell: bash
+      run: |
+        mkdir -p release
+        cp cli/dist/bcce release/
+        cp go-tools/credproc/bin/* release/ 2>/dev/null || true
+        cp go-tools/doctor-probes/bin/* release/ 2>/dev/null || true
+        cp README.md LICENSE CONTRIBUTING.md release/
+        
+        # Create archive
+        cd release
+        if [ "${{ matrix.goos }}" = "windows" ]; then
+          7z a ../bcce-${{ steps.version.outputs.VERSION }}-${{ matrix.goos }}-${{ matrix.goarch }}.zip *
+          echo "ASSET_NAME=bcce-${{ steps.version.outputs.VERSION }}-${{ matrix.goos }}-${{ matrix.goarch }}.zip" >> $GITHUB_ENV
+          echo "ASSET_PATH=bcce-${{ steps.version.outputs.VERSION }}-${{ matrix.goos }}-${{ matrix.goarch }}.zip" >> $GITHUB_ENV
+        else
+          tar czf ../bcce-${{ steps.version.outputs.VERSION }}-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz *
+          echo "ASSET_NAME=bcce-${{ steps.version.outputs.VERSION }}-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz" >> $GITHUB_ENV  
+          echo "ASSET_PATH=bcce-${{ steps.version.outputs.VERSION }}-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz" >> $GITHUB_ENV
+        fi
+        
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.upload_url }}
+        asset_path: ${{ env.ASSET_PATH }}
+        asset_name: ${{ env.ASSET_NAME }}
+        asset_content_type: application/octet-stream
+
+  generate-sbom:
+    runs-on: ubuntu-latest
+    needs: create-release
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        
+    - name: Install dependencies
+      run: make setup
+      
+    - name: Generate SBOM
+      run: |
+        # Install syft for SBOM generation
+        curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+        
+        # Generate SBOM
+        syft packages . -o spdx-json=bcce-sbom.spdx.json
+        syft packages . -o cyclonedx-json=bcce-sbom.cdx.json
+        
+    - name: Upload SBOM
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.upload_url }}
+        asset_path: bcce-sbom.spdx.json
+        asset_name: bcce-sbom.spdx.json
+        asset_content_type: application/json

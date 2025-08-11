@@ -1,0 +1,46 @@
+version: 1
+workflow: "Test grader & fixer"
+model: ${BEDROCK_MODEL_ID}
+guardrails: ["pii-basic","secrets-default"]
+
+env:
+  max_runtime_seconds: 1200
+  artifacts_dir: .bcce_runs/${RUN_ID}
+
+steps:
+  - id: discover_tests
+    type: prompt
+    prompt_file: test-grader-prompt.md
+    available_tools: [ReadFile, Search]
+    inputs:
+      paths: ["**/*test*", "**/test*/**", "**/*spec*", "**/spec*/**"]
+      file_size_limit_kb: 512
+
+  - id: analyze_test_quality
+    type: agent
+    policy:
+      timeout_seconds: 600
+      max_files: 50
+      max_edits: 1  # Analysis only, minimal modifications
+      allowed_paths: ["**/*test*", "**/test*/**", "**/*spec*", "**/spec*/**", "src/**", "lib/**", "app/**"]
+      cmd_allowlist: ["npm", "yarn", "pnpm", "pytest", "go", "mvn", "gradle", "jest", "mocha", "vitest"]
+    available_tools: [ReadFile, Search, Cmd]
+
+  - id: run_existing_tests
+    type: cmd
+    command: "npm test || yarn test || pnpm test || pytest || go test ./... || mvn test || gradle test || echo 'No test command detected'"
+    on_error: continue
+
+  - id: suggest_improvements
+    type: agent
+    policy:
+      timeout_seconds: 300
+      max_files: 20
+      max_edits: 10
+      allowed_paths: ["**/*test*", "**/test*/**", "**/*spec*"]
+      cmd_allowlist: ["npm", "yarn", "pnpm", "pytest", "go", "mvn", "gradle"]
+    available_tools: [ReadFile, Search, Diff, Apply, Cmd]
+
+  - id: apply_test_improvements
+    type: apply_diff
+    approve: false  # Requires manual approval

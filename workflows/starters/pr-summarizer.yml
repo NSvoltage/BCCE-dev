@@ -1,0 +1,46 @@
+version: 1
+workflow: "Pull request analysis & summary generation"
+model: ${BEDROCK_MODEL_ID}
+guardrails: ["pii-basic", "secrets-default"]
+
+env:
+  max_runtime_seconds: 600
+  artifacts_dir: .bcce_runs/${RUN_ID}
+
+steps:
+  - id: analyze_changes
+    type: prompt
+    prompt_file: pr-summarizer-prompt.md
+    available_tools: [ReadFile, Search]
+    inputs:
+      paths: ["**/*.diff", "**/*.patch", "src/**", "lib/**", "app/**", "test/**", "*.md", "*.json", "*.yml", "*.yaml"]
+      file_size_limit_kb: 1024
+
+  - id: examine_git_diff
+    type: cmd
+    command: "git diff HEAD~1..HEAD || git diff --cached || echo 'No git changes detected'"
+    on_error: continue
+
+  - id: assess_impact
+    type: agent
+    policy:
+      timeout_seconds: 300
+      max_files: 50
+      max_edits: 1  # Analysis only, minimal modifications
+      allowed_paths: ["src/**", "lib/**", "app/**", "test/**", "spec/**", "*.md", "*.json", "*.yml", "*.yaml", "*.toml", "*.xml"]
+      cmd_allowlist: ["git", "grep", "find", "wc"]
+    available_tools: [ReadFile, Search, Cmd]
+
+  - id: generate_summary
+    type: agent
+    policy:
+      timeout_seconds: 200
+      max_files: 20
+      max_edits: 1
+      allowed_paths: ["*.md", "PULL_REQUEST_TEMPLATE.md", "PR_SUMMARY.md"]
+      cmd_allowlist: []
+    available_tools: [ReadFile, Search, Diff, Apply]
+
+  - id: create_pr_description
+    type: apply_diff
+    approve: true  # Auto-approve documentation generation

@@ -1,0 +1,157 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  NODE_VERSION: '20.x'
+  GO_VERSION: '1.22'
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: cli/package-lock.json
+        
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        
+    - name: Install dependencies
+      run: make setup
+      
+    - name: Lint TypeScript
+      run: make lint-cli
+      
+    - name: Lint Go
+      run: make lint-go
+      
+    - name: Build CLI
+      run: make build-cli
+      
+    - name: Build Go tools
+      run: make build-go
+      
+    - name: Run tests
+      run: make test
+      
+    - name: Validate workflow schemas
+      run: |
+        export BEDROCK_MODEL_ID="anthropic.claude-3-5-sonnet-20241022-v2:0"
+        make validate-workflows
+        
+    - name: Test CLI functionality
+      run: |
+        # Test basic CLI commands
+        ./cli/dist/bcce --version
+        ./cli/dist/bcce --help
+        ./cli/dist/bcce models --help
+        ./cli/dist/bcce workflow --help
+        
+        # Test workflow scaffolding
+        ./cli/dist/bcce workflow scaffold ci-test --template basic
+        export BEDROCK_MODEL_ID="anthropic.claude-3-5-sonnet-20241022-v2:0"
+        ./cli/dist/bcce workflow validate workflows/examples/ci-test/workflow.yml
+        
+    - name: Generate SBOM
+      run: make sbom
+
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  build-and-package:
+    runs-on: ubuntu-latest
+    needs: [lint-and-test]
+    if: github.event_name == 'push'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        
+    - name: Install dependencies
+      run: make setup
+      
+    - name: Build all components
+      run: make build
+      
+    - name: Package binaries
+      run: make package || echo "Packaging skipped - requires credentials"
+      
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: bcce-dist
+        path: |
+          cli/dist/**
+          go-tools/**/bin/**
+        retention-days: 30
+
+  compatibility-matrix:
+    runs-on: ubuntu-latest
+    needs: [lint-and-test]
+    
+    strategy:
+      matrix:
+        node-version: ['18.x', '20.x', '22.x']
+        go-version: ['1.21', '1.22']
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        
+    - name: Setup Go ${{ matrix.go-version }}
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go-version }}
+        
+    - name: Test compatibility
+      run: |
+        make setup
+        make build
+        ./cli/dist/bcce --version

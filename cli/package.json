@@ -1,0 +1,35 @@
+{
+  "name": "bcce",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bedrock Claude Code Enablement Kit CLI",
+  "bin": { "bcce": "dist/bcce" },
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --format=cjs --outfile=dist/bcce.cjs --sourcemap && echo '#!/usr/bin/env node' > dist/bcce && cat dist/bcce.cjs >> dist/bcce && chmod +x dist/bcce",
+    "package": "pkg dist/bcce.js --targets node20-linux-x64,node20-macos-x64,node20-win-x64 --output dist/bcce",
+    "dev": "tsx src/index.ts",
+    "lint": "eslint .",
+    "test": "node --test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "yaml": "^2.5.0",
+    "ajv": "^8.17.1",
+    "inquirer": "^10.2.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.7.0",
+    "@types/node": "^20.14.9",
+    "@types/inquirer": "^9.0.7",
+    "@typescript-eslint/eslint-plugin": "^7.16.1",
+    "@typescript-eslint/parser": "^7.16.1",
+    "eslint": "^9.7.0",
+    "eslint-config-prettier": "^9.1.0",
+    "esbuild": "^0.23.0",
+    "pkg": "^5.8.1",
+    "prettier": "^3.3.3",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4"
+  }
+}

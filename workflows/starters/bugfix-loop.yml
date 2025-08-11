@@ -1,0 +1,56 @@
+version: 1
+workflow: "Bugfix investigation & resolution loop"
+model: ${BEDROCK_MODEL_ID}
+guardrails: ["pii-basic", "secrets-default"]
+
+env:
+  max_runtime_seconds: 1800
+  artifacts_dir: .bcce_runs/${RUN_ID}
+
+steps:
+  - id: investigate_issue
+    type: prompt
+    prompt_file: bugfix-prompt.md
+    available_tools: [ReadFile, Search]
+    inputs:
+      paths: ["src/**", "lib/**", "app/**", "**/*.log", "**/*.md"]
+      file_size_limit_kb: 1024
+
+  - id: reproduce_bug
+    type: agent
+    policy:
+      timeout_seconds: 400
+      max_files: 30
+      max_edits: 1  # Investigation only, minimal changes
+      allowed_paths: ["src/**", "lib/**", "app/**", "test/**", "spec/**"]
+      cmd_allowlist: ["npm", "yarn", "pnpm", "python", "python3", "pip", "go", "mvn", "gradle", "make", "cargo"]
+    available_tools: [ReadFile, Search, Cmd]
+
+  - id: develop_fix
+    type: agent
+    policy:
+      timeout_seconds: 900
+      max_files: 40
+      max_edits: 20
+      allowed_paths: ["src/**", "lib/**", "app/**", "test/**", "spec/**", "*.py", "*.js", "*.ts", "*.go", "*.java", "*.rs"]
+      cmd_allowlist: ["npm", "yarn", "pnpm", "python", "python3", "pytest", "go", "mvn", "gradle", "make", "cargo", "jest", "mocha"]
+    available_tools: [ReadFile, Search, Diff, Apply, Cmd]
+
+  - id: test_fix
+    type: cmd
+    command: "npm test || yarn test || pnpm test || pytest || python -m pytest || go test ./... || mvn test || gradle test || make test || cargo test"
+    on_error: continue
+
+  - id: validate_fix_comprehensive
+    type: agent
+    policy:
+      timeout_seconds: 300
+      max_files: 20
+      max_edits: 5
+      allowed_paths: ["src/**", "lib/**", "app/**", "test/**"]
+      cmd_allowlist: ["npm", "yarn", "pnpm", "python", "python3", "pytest", "go", "mvn", "gradle"]
+    available_tools: [ReadFile, Search, Cmd, Diff, Apply]
+
+  - id: apply_final_changes
+    type: apply_diff
+    approve: false  # Require manual review for bug fixes
