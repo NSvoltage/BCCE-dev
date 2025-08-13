@@ -1,0 +1,19 @@
+version: 1
+workflow: "Developer Demo - Code Review Assistant"
+model: "us.anthropic.claude-3-5-sonnet-20250219-v1:0"
+
+steps:
+  - id: analyze_codebase
+    type: agent
+    policy:
+      timeout_seconds: 300
+      max_files: 20
+      max_edits: 1  # Minimal analysis with potential suggestions
+      allowed_paths: ["cli/src/**", "cli/test/**", "*.md"]
+      cmd_allowlist: []
+    available_tools: [ReadFile, Search]
+    
+  - id: run_health_check
+    type: cmd
+    command: "npm --prefix cli run build"
+    on_error: continue
