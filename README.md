@@ -30,6 +30,7 @@ bcce workflow run doc-generator.yml
 - **📦 Artifact management** - Complete audit trails and resume capability  
 - **👥 Team standardization** - Shared workflows across the team
 - **🔄 Reproducibility** - Same workflow, same results
+- **🔧 Extensible architecture** - Add custom step types and integrations via plugins
 
 ## Quick Start
 
@@ -103,9 +104,13 @@ bcce workflow resume <id>        # Resume interrupted workflow
 
 | Guide | Purpose |
 |-------|---------|
+| **[Architecture Overview](docs/ARCHITECTURE_OVERVIEW.md)** | Complete system architecture and design |
 | **[Usage Guide](docs/USAGE_GUIDE.md)** | Practical examples and patterns |
 | **[Quick Start](QUICKSTART.md)** | Detailed setup instructions |
 | **[Workflow Schema](docs/workflow-schema.md)** | Complete YAML reference |
+| **[Extensibility Architecture](docs/EXTENSIBILITY_ARCHITECTURE.md)** | Plugin system and custom step types |
+| **[Plugin Development Guide](docs/PLUGIN_DEVELOPMENT_GUIDE.md)** | Build custom plugins and integrations |
+| **[Step Type System](docs/STEP_TYPE_SYSTEM.md)** | Create custom workflow operations |
 | **[Troubleshooting](docs/troubleshooting/README.md)** | Common issues and fixes |
 
 ## Who Should Use BCCE?
@@ -115,6 +120,7 @@ bcce workflow resume <id>        # Resume interrupted workflow
 - Need audit trails and security controls for AI workflows
 - Want standardized AI-assisted development processes
 - Require resumable, reproducible AI workflows
+- Organizations needing custom integrations and workflow operations
 
 **❌ Not suitable:**
 - Prefer ad-hoc AI assistance without structure

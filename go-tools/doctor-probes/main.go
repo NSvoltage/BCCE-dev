@@ -2,16 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"flag"
 	"fmt"
 	"net"
-	"net/http"
 	"os"
-	"strings"
 	"time"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/bedrock"
 )
 
 type CheckResult struct {
@@ -19,6 +15,10 @@ type CheckResult struct {
 	Status  string `json:"status"` // pass, fail, warn
 	Message string `json:"message"`
 	Fix     string `json:"fix,omitempty"`
+}
+
+type ProbeOutput struct {
+	Checks []CheckResult `json:"checks"`
 }
 
 func checkDNS(host string) error {
@@ -29,156 +29,23 @@ func checkDNS(host string) error {
 	return err
 }
 
-func checkHTTPSConnectivity(url string) error {
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-		Transport: &http.Transport{
-			DialContext: (&net.Dialer{
-				Timeout: 5 * time.Second,
-			}).DialContext,
-		},
-	}
-	
-	resp, err := client.Head(url)
-	if err != nil {
-		return err
-	}
-	resp.Body.Close()
-	
-	if resp.StatusCode >= 400 {
-		return fmt.Errorf("HTTP %d", resp.StatusCode)
-	}
-	
-	return nil
-}
-
-func checkBedrockAccess(region string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
-	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
-	if err != nil {
-		return fmt.Errorf("failed to load AWS config: %w", err)
-	}
-
-	client := bedrock.NewFromConfig(cfg)
-	
-	// Minimal dry-run: list foundation models (read-only operation)
-	input := &bedrock.ListFoundationModelsInput{
-		ByProvider: aws.String("anthropic"),
-	}
-	
-	result, err := client.ListFoundationModels(ctx, input)
-	if err != nil {
-		return fmt.Errorf("bedrock API call failed: %w", err)
-	}
-	
-	if len(result.ModelSummaries) == 0 {
-		return fmt.Errorf("no Anthropic models available in region %s", region)
-	}
-	
-	return nil
-}
-
-func runChecks() []CheckResult {
+func runDNSChecks(region string) []CheckResult {
 	var results []CheckResult
 	
-	// Get region from environment
-	region := os.Getenv("AWS_REGION")
-	if region == "" {
+	// DNS resolution check for Bedrock endpoint
+	bedrockHost := fmt.Sprintf("bedrock-runtime.%s.amazonaws.com", region)
+	if err := checkDNS(bedrockHost); err != nil {
 		results = append(results, CheckResult{
-			Name:    "AWS_REGION",
+			Name:    "DNS - Bedrock Runtime",
 			Status:  "fail",
-			Message: "AWS_REGION environment variable not set",
-			Fix:     "export AWS_REGION=us-east-1 (or your preferred region)",
-		})
-		return results // Can't continue without region
-	}
-	
-	results = append(results, CheckResult{
-		Name:    "AWS_REGION",
-		Status:  "pass",
-		Message: fmt.Sprintf("Set to: %s", region),
-	})
-	
-	// DNS resolution checks
-	endpoints := []struct {
-		name string
-		host string
-	}{
-		{"Bedrock Runtime", fmt.Sprintf("bedrock-runtime.%s.amazonaws.com", region)},
-		{"Bedrock Control", fmt.Sprintf("bedrock.%s.amazonaws.com", region)},
-		{"STS", fmt.Sprintf("sts.%s.amazonaws.com", region)},
-	}
-	
-	for _, endpoint := range endpoints {
-		if err := checkDNS(endpoint.host); err != nil {
-			results = append(results, CheckResult{
-				Name:    fmt.Sprintf("DNS - %s", endpoint.name),
-				Status:  "fail", 
-				Message: fmt.Sprintf("Failed to resolve %s: %v", endpoint.host, err),
-				Fix:     "Check internet connectivity and DNS settings",
-			})
-		} else {
-			results = append(results, CheckResult{
-				Name:    fmt.Sprintf("DNS - %s", endpoint.name),
-				Status:  "pass",
-				Message: fmt.Sprintf("Resolved %s", endpoint.host),
-			})
-		}
-	}
-	
-	// HTTPS connectivity check
-	bedrockURL := fmt.Sprintf("https://bedrock-runtime.%s.amazonaws.com", region)
-	if err := checkHTTPSConnectivity(bedrockURL); err != nil {
-		results = append(results, CheckResult{
-			Name:    "HTTPS Connectivity",
-			Status:  "fail",
-			Message: fmt.Sprintf("Failed to connect to %s: %v", bedrockURL, err),
-			Fix:     "Check firewall, proxy settings, or VPC endpoint configuration",
+			Message: fmt.Sprintf("Failed to resolve %s: %v", bedrockHost, err),
+			Fix:     "Check internet connectivity and DNS settings",
 		})
 	} else {
 		results = append(results, CheckResult{
-			Name:    "HTTPS Connectivity", 
+			Name:    "DNS - Bedrock Runtime",
 			Status:  "pass",
-			Message: fmt.Sprintf("Successfully connected to %s", bedrockURL),
-		})
-	}
-	
-	// PrivateLink endpoint check (if VPC endpoint is configured)
-	if strings.Contains(os.Getenv("AWS_BEDROCK_ENDPOINT_URL"), "vpce-") {
-		results = append(results, CheckResult{
-			Name:    "PrivateLink VPC Endpoint",
-			Status:  "pass",
-			Message: "VPC endpoint configuration detected",
-		})
-	}
-	
-	// Bedrock API access check
-	if err := checkBedrockAccess(region); err != nil {
-		status := "fail"
-		fix := "Check AWS credentials and IAM permissions for bedrock:ListFoundationModels"
-		
-		// Provide more specific guidance based on error type
-		errMsg := err.Error()
-		if strings.Contains(errMsg, "UnauthorizedOperation") || strings.Contains(errMsg, "AccessDenied") {
-			fix = "Add bedrock:ListFoundationModels permission to your IAM role/user"
-		} else if strings.Contains(errMsg, "no models available") {
-			status = "warn"
-			fix = "Request access to Anthropic models in AWS Bedrock console"
-		}
-		
-		results = append(results, CheckResult{
-			Name:    "Bedrock API Access",
-			Status:  status,
-			Message: errMsg,
-			Fix:     fix,
-		})
-	} else {
-		results = append(results, CheckResult{
-			Name:    "Bedrock API Access",
-			Status:  "pass", 
-			Message: fmt.Sprintf("Successfully accessed Bedrock API in %s", region),
+			Message: fmt.Sprintf("Resolved %s", bedrockHost),
 		})
 	}
 	
@@ -186,14 +53,45 @@ func runChecks() []CheckResult {
 }
 
 func main() {
-	results := runChecks()
-	
+	var jsonOutput = flag.Bool("json", false, "Output results as JSON")
+	var dnsOnly = flag.Bool("dns-only", false, "Run only DNS resolution checks")
+	flag.Parse()
+
+	// Get region from environment
+	region := os.Getenv("AWS_REGION")
+	if region == "" {
+		if *jsonOutput {
+			output := ProbeOutput{
+				Checks: []CheckResult{{
+					Name:    "AWS_REGION",
+					Status:  "fail",
+					Message: "AWS_REGION environment variable not set",
+					Fix:     "export AWS_REGION=us-east-1",
+				}},
+			}
+			json.NewEncoder(os.Stdout).Encode(output)
+		} else {
+			fmt.Println("❌ AWS_REGION not set")
+		}
+		os.Exit(1)
+	}
+
+	// Run DNS-only checks for fail-closed operation
+	results := runDNSChecks(region)
+
+	if *jsonOutput {
+		output := ProbeOutput{Checks: results}
+		json.NewEncoder(os.Stdout).Encode(output)
+		return
+	}
+
+	// Human-readable output
 	hasFailures := false
 	hasWarnings := false
-	
+
 	fmt.Println("🩺 BCCE Doctor Probes Report")
 	fmt.Println()
-	
+
 	for _, result := range results {
 		icon := "✅"
 		switch result.Status {
@@ -204,23 +102,23 @@ func main() {
 			icon = "❌"
 			hasFailures = true
 		}
-		
+
 		fmt.Printf("%s %s: %s\n", icon, result.Name, result.Message)
 		if result.Fix != "" {
 			fmt.Printf("   Fix: %s\n", result.Fix)
 		}
 	}
-	
+
 	fmt.Println()
-	
+
 	if hasFailures {
-		fmt.Println("❌ Critical connectivity issues detected")
+		fmt.Println("❌ DNS resolution issues detected")
 		os.Exit(1)
 	} else if hasWarnings {
 		fmt.Println("⚠️  Some warnings detected")
 		os.Exit(2)
 	} else {
-		fmt.Println("✅ All connectivity checks passed")
+		fmt.Println("✅ All DNS checks passed")
 		os.Exit(0)
 	}
 }

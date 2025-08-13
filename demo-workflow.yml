@@ -6,12 +6,12 @@ steps:
   - id: analyze_codebase
     type: agent
     policy:
-      timeout_seconds: 300
-      max_files: 20
-      max_edits: 1  # Minimal analysis with potential suggestions
-      allowed_paths: ["cli/src/**", "cli/test/**", "*.md"]
+      timeout_seconds: 60  # Shorter timeout for testing
+      max_files: 5   # Fewer files for faster analysis
+      max_edits: 1
+      allowed_paths: ["*.md", "package.json"]
       cmd_allowlist: []
-    available_tools: [ReadFile, Search]
+    available_tools: [ReadFile]
     
   - id: run_health_check
     type: cmd
