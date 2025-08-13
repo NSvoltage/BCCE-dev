@@ -1,0 +1,7 @@
+workflow: "Missing version"
+model: ${BEDROCK_MODEL_ID}
+
+steps:
+  - id: test_step
+    type: prompt
+    prompt_file: test.md

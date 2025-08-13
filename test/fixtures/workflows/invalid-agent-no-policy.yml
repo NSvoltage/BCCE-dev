@@ -1,0 +1,8 @@
+version: 1
+workflow: "Agent without policy"
+model: ${BEDROCK_MODEL_ID}
+
+steps:
+  - id: agent_step
+    type: agent
+    available_tools: [ReadFile]

@@ -1,0 +1,9 @@
+version: 1
+workflow: "Malformed YAML"
+model: ${BEDROCK_MODEL_ID}
+
+steps:
+  - id: test_step
+    type: prompt
+    prompt_file: test.md
+    invalid_yaml: [unclosed array

@@ -1,0 +1,176 @@
+name: ✨ Feature Request
+description: Suggest a new feature or enhancement for BCCE
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new feature! 🚀
+        
+        Before submitting, please:
+        - Search existing issues to avoid duplicates
+        - Consider if this could be solved with existing features
+        - Think about the impact on other users
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Prerequisites
+      description: Please confirm the following
+      options:
+        - label: I have searched existing issues for similar requests
+          required: true
+        - label: This is not a bug report (use bug report template instead)
+          required: true
+        - label: I have considered if this can be solved with existing features
+          required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Feature Category
+      description: What category does this feature fall into?
+      options:
+        - CLI Commands
+        - AWS Integration
+        - Workflow Engine
+        - Security & Compliance
+        - Developer Experience
+        - Documentation
+        - Performance
+        - Monitoring & Observability
+        - Enterprise Features
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: |
+        What problem does this feature solve? 
+        What pain point are you experiencing?
+      placeholder: "I'm frustrated when... / It's difficult to... / Users need..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: |
+        Describe the solution you'd like to see.
+        How should this feature work?
+      placeholder: "I would like BCCE to... / The feature should..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: |
+        What alternatives have you considered?
+        Are there workarounds you're currently using?
+      placeholder: "I've considered... / Currently I work around this by..."
+    validations:
+      required: false
+
+  - type: dropdown
+    id: user_type
+    attributes:
+      label: User Type
+      description: What type of user would benefit from this feature?
+      multiple: true
+      options:
+        - Individual Developer
+        - Development Team
+        - DevOps Engineer
+        - Security Team
+        - Enterprise IT
+        - System Administrator
+        - Product Manager
+        - All Users
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - Low (Nice to have)
+        - Medium (Would improve workflow)
+        - High (Important for adoption)
+        - Critical (Blocking usage)
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_cases
+    attributes:
+      label: Use Cases
+      description: |
+        Provide specific examples of how this feature would be used.
+        Include command examples if applicable.
+      placeholder: |
+        Example 1: When deploying to production...
+        Example 2: During development workflow...
+        Example 3: For compliance requirements...
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance Criteria
+      description: |
+        What would make this feature complete?
+        How would you test that it works correctly?
+      placeholder: |
+        - [ ] Feature should do X
+        - [ ] Feature should handle Y scenario
+        - [ ] Feature should integrate with Z
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: implementation
+    attributes:
+      label: Implementation Preferences
+      description: Do you have preferences for how this should be implemented?
+      options:
+        - label: This should be a new CLI command
+        - label: This should be an option/flag on existing command
+        - label: This should be configurable via config file
+        - label: This should integrate with existing workflows
+        - label: This needs comprehensive documentation
+        - label: This needs backward compatibility
+
+  - type: textarea
+    id: resources
+    attributes:
+      label: Additional Resources
+      description: |
+        Provide any additional context:
+        - Links to relevant documentation
+        - Examples from other tools
+        - Screenshots or mockups
+        - Technical specifications
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Are you interested in contributing to this feature?
+      options:
+        - label: I would be willing to help implement this feature
+        - label: I would be willing to help test this feature
+        - label: I would be willing to help document this feature

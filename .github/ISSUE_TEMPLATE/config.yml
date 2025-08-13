@@ -1,0 +1,17 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📚 Documentation
+    url: https://bcce.dev/docs
+    about: Comprehensive documentation and guides
+  - name: 💬 Community Discussions
+    url: https://github.com/NSvoltage/BCCE-dev/discussions
+    about: Ask questions and discuss with the community
+  - name: 🔒 Security Vulnerability
+    url: mailto:security@bcce.dev
+    about: Report security vulnerabilities privately
+  - name: 🏢 Enterprise Sales
+    url: https://bcce.dev/enterprise
+    about: Contact our enterprise sales team
+  - name: 📞 Emergency Support
+    url: tel:+1-800-BCCE-911
+    about: 24/7 emergency support for enterprise customers

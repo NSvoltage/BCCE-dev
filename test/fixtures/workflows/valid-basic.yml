@@ -1,0 +1,9 @@
+version: 1
+workflow: "Basic test workflow"
+model: ${BEDROCK_MODEL_ID}
+
+steps:
+  - id: simple_prompt
+    type: prompt
+    prompt_file: test-prompt.md
+    available_tools: [ReadFile]

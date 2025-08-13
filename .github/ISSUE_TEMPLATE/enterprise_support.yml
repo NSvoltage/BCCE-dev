@@ -1,0 +1,196 @@
+name: 🏢 Enterprise Support
+description: Enterprise support request for BCCE deployment and operations
+title: "[Enterprise]: "
+labels: ["enterprise", "support", "priority"]
+assignees: ["enterprise-support-team"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        # Enterprise Support Request
+        
+        This template is for enterprise customers who need priority support for BCCE deployment, configuration, or operations.
+        
+        **Response Time SLA:**
+        - Critical: 2 hours
+        - High: 8 hours  
+        - Medium: 24 hours
+        - Low: 72 hours
+
+  - type: input
+    id: company
+    attributes:
+      label: Company/Organization
+      description: Your company or organization name
+    validations:
+      required: true
+
+  - type: input
+    id: support_plan
+    attributes:
+      label: Support Plan
+      description: Your enterprise support plan level
+      placeholder: "e.g., Enterprise Premium, Enterprise Standard"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority Level
+      description: Priority level based on business impact
+      options:
+        - Critical (Production down, business stopped)
+        - High (Major functionality impaired)
+        - Medium (Minor functionality impaired)
+        - Low (General questions, enhancement requests)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Support Category
+      description: What type of support do you need?
+      options:
+        - Deployment & Configuration
+        - Performance & Scaling
+        - Security & Compliance
+        - Integration Issues
+        - Training & Onboarding
+        - Architecture Guidance
+        - Custom Development
+        - Troubleshooting
+        - License & Billing
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Issue Description
+      description: Detailed description of your issue or request
+      placeholder: "Provide a comprehensive description of what you're experiencing or need help with"
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment Details
+      description: |
+        Provide details about your environment:
+        - AWS Account/Region
+        - BCCE Version
+        - Deployment method
+        - Scale (users, requests/day, etc.)
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Business Impact
+      description: |
+        Describe the business impact:
+        - How many users are affected?
+        - What processes are disrupted?
+        - Financial impact if applicable
+        - Timeline constraints
+    validations:
+      required: true
+
+  - type: textarea
+    id: attempted_solutions
+    attributes:
+      label: Attempted Solutions
+      description: |
+        What have you already tried to resolve this issue?
+        Include any error messages, logs, or diagnostic output.
+      render: shell
+    validations:
+      required: false
+
+  - type: dropdown
+    id: contact_method
+    attributes:
+      label: Preferred Contact Method
+      description: How would you prefer to be contacted?
+      options:
+        - Email
+        - Phone Call
+        - Video Conference
+        - Slack Channel
+        - On-site Visit (for Critical issues)
+    validations:
+      required: true
+
+  - type: input
+    id: contact_info
+    attributes:
+      label: Contact Information
+      description: Primary contact for this issue (email/phone)
+    validations:
+      required: true
+
+  - type: input
+    id: timezone
+    attributes:
+      label: Timezone
+      description: Your timezone for scheduling calls
+      placeholder: "e.g., PST, EST, UTC+1"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: urgency_factors
+    attributes:
+      label: Urgency Factors
+      description: Select any factors that increase urgency
+      options:
+        - label: Production system is down
+        - label: Security vulnerability identified
+        - label: Compliance audit in progress
+        - label: Executive escalation
+        - label: Customer-facing impact
+        - label: Regulatory deadline approaching
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: |
+        Any additional information that might help:
+        - Related tickets or issues
+        - Architectural diagrams
+        - Configuration files (sanitized)
+        - Monitoring screenshots
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confidentiality
+    attributes:
+      label: Confidentiality Agreement
+      description: Please acknowledge
+      options:
+        - label: I confirm that sensitive information may be shared under our existing NDA
+          required: true
+        - label: I authorize BCCE support team to access our systems for troubleshooting (if needed)
+          required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        
+        **Next Steps:**
+        1. Our enterprise support team will acknowledge this request within the SLA timeframe
+        2. A support engineer will be assigned based on the priority and category
+        3. You'll receive a case number for tracking
+        4. Regular updates will be provided until resolution
+        
+        **Emergency Contact:**
+        For critical production issues outside business hours, call: +1-800-BCCE-911

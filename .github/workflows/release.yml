@@ -1,0 +1,287 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v1.0.0)'
+        required: true
+        type: string
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  validate-tag:
+    name: Validate Release Tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
+    steps:
+      - name: Extract version from tag
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/}
+          fi
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+          if [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "Releasing version: $VERSION"
+          echo "Is prerelease: $(if [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo false; else echo true; fi)"
+
+  build-binaries:
+    name: Build Release Binaries
+    runs-on: ${{ matrix.os }}
+    needs: validate-tag
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux
+            arch: x64
+          - os: windows-latest
+            target: win
+            arch: x64
+          - os: macos-latest
+            target: macos
+            arch: x64
+          - os: macos-latest
+            target: macos
+            arch: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build CLI
+        run: npm run build
+
+      - name: Package binary
+        run: npm run package
+
+      - name: Rename binary
+        shell: bash
+        run: |
+          cd dist
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            mv bcce-win.exe bcce-${{ matrix.target }}-${{ matrix.arch }}.exe
+          else
+            mv bcce-${{ matrix.target }} bcce-${{ matrix.target }}-${{ matrix.arch }}
+          fi
+
+      - name: Test binary
+        shell: bash
+        run: |
+          cd dist
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            ./bcce-${{ matrix.target }}-${{ matrix.arch }}.exe --version
+          else
+            ./bcce-${{ matrix.target }}-${{ matrix.arch }} --version
+          fi
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: bcce-${{ matrix.target }}-${{ matrix.arch }}
+          path: dist/bcce-*
+          retention-days: 1
+
+  build-docker:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: [validate-tag, build-binaries]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Download Linux binary
+        uses: actions/download-artifact@v4
+        with:
+          name: bcce-linux-x64
+          path: dist/
+
+      - name: Make binary executable
+        run: chmod +x dist/bcce-linux-x64
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: nsvoltage/bcce
+          tags: |
+            type=ref,event=tag
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [validate-tag, build-binaries, build-docker]
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets/
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p assets
+          find release-assets -name "bcce-*" -type f -exec cp {} assets/ \;
+          ls -la assets/
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          # Get the previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+          
+          # Generate changelog
+          if [[ -n "$PREV_TAG" ]]; then
+            echo "## Changes since $PREV_TAG" > release_notes.md
+            echo "" >> release_notes.md
+            git log --pretty=format:"- %s (%h)" $PREV_TAG..HEAD >> release_notes.md
+          else
+            echo "## Initial Release" > release_notes.md
+            echo "" >> release_notes.md
+            echo "First release of BCCE - Bedrock Claude Code Enablement Kit" >> release_notes.md
+          fi
+          
+          echo "" >> release_notes.md
+          echo "## Installation" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### NPM" >> release_notes.md
+          echo "\`\`\`bash" >> release_notes.md
+          echo "npm install -g bcce@${{ needs.validate-tag.outputs.version }}" >> release_notes.md
+          echo "\`\`\`" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### Direct Download" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "Download the appropriate binary for your platform from the assets below." >> release_notes.md
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.validate-tag.outputs.version }}
+          name: BCCE ${{ needs.validate-tag.outputs.version }}
+          body_path: release_notes.md
+          files: assets/*
+          prerelease: ${{ needs.validate-tag.outputs.is_prerelease == 'true' }}
+          generate_release_notes: true
+
+  npm-publish:
+    name: Publish to NPM
+    runs-on: ubuntu-latest
+    needs: [validate-tag, build-binaries]
+    if: needs.validate-tag.outputs.is_prerelease == 'false'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Update package version
+        run: |
+          VERSION=${{ needs.validate-tag.outputs.version }}
+          VERSION=${VERSION#v}  # Remove 'v' prefix
+          npm version $VERSION --no-git-tag-version
+
+      - name: Publish to NPM
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  update-homebrew:
+    name: Update Homebrew Formula
+    runs-on: ubuntu-latest
+    needs: [validate-tag, create-release]
+    if: needs.validate-tag.outputs.is_prerelease == 'false'
+    steps:
+      - name: Update Homebrew formula
+        uses: NSvoltage/homebrew-tap@main
+        with:
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          formula: bcce
+          version: ${{ needs.validate-tag.outputs.version }}
+          url: https://github.com/NSvoltage/BCCE-dev/releases/download/${{ needs.validate-tag.outputs.version }}/bcce-macos-x64
+
+  notify-slack:
+    name: Notify Release
+    runs-on: ubuntu-latest
+    needs: [validate-tag, create-release, npm-publish]
+    if: always()
+    steps:
+      - name: Slack notification
+        if: env.SLACK_WEBHOOK_URL
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#releases'
+          text: |
+            🚀 BCCE ${{ needs.validate-tag.outputs.version }} has been released!
+            
+            📦 NPM: `npm install -g bcce@${{ needs.validate-tag.outputs.version }}`
+            🐳 Docker: `docker pull nsvoltage/bcce:${{ needs.validate-tag.outputs.version }}`
+            📥 GitHub: https://github.com/NSvoltage/BCCE-dev/releases/tag/${{ needs.validate-tag.outputs.version }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

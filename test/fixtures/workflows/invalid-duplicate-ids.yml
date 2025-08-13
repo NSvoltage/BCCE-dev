@@ -1,0 +1,12 @@
+version: 1
+workflow: "Duplicate step IDs"
+model: ${BEDROCK_MODEL_ID}
+
+steps:
+  - id: duplicate_step
+    type: prompt
+    prompt_file: test.md
+  
+  - id: duplicate_step
+    type: cmd
+    command: echo "duplicate"

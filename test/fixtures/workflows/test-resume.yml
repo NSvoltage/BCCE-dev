@@ -1,0 +1,16 @@
+version: 1
+workflow: "Resume test workflow"
+model: ${BEDROCK_MODEL_ID}
+
+steps:
+  - id: step_1
+    type: cmd
+    command: echo "Step 1 success"
+  
+  - id: step_2_fail
+    type: cmd
+    command: exit 1
+    
+  - id: step_3
+    type: cmd
+    command: echo "Step 3 should not run initially"

@@ -1,0 +1,98 @@
+{
+  "name": "bcce",
+  "version": "1.0.0",
+  "private": false,
+  "description": "Enterprise-grade CLI for AWS Bedrock Claude Code workflows",
+  "keywords": [
+    "aws",
+    "bedrock",
+    "claude",
+    "ai",
+    "cli",
+    "enterprise",
+    "workflow",
+    "automation",
+    "code-generation",
+    "infrastructure"
+  ],
+  "homepage": "https://github.com/NSvoltage/BCCE-dev#readme",
+  "bugs": {
+    "url": "https://github.com/NSvoltage/BCCE-dev/issues",
+    "email": "support@bcce.dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NSvoltage/BCCE-dev.git"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "NSvoltage",
+    "email": "hello@nsvoltage.com",
+    "url": "https://github.com/NSvoltage"
+  },
+  "maintainers": [
+    {
+      "name": "BCCE Team",
+      "email": "maintainers@bcce.dev"
+    }
+  ],
+  "bin": { "bcce": "dist/bcce" },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --format=cjs --outfile=dist/bcce.cjs --sourcemap && echo '#!/usr/bin/env node' > dist/bcce && cat dist/bcce.cjs >> dist/bcce && chmod +x dist/bcce",
+    "build:clean": "rm -rf dist && npm run build",
+    "package": "pkg dist/bcce.js --targets node20-linux-x64,node20-macos-x64,node20-win-x64 --output dist/bcce",
+    "dev": "tsx src/index.ts",
+    "dev:watch": "tsx watch src/index.ts",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "node --test",
+    "test:unit": "node --test test/unit",
+    "test:integration": "node --test test/integration", 
+    "test:coverage": "c8 node --test",
+    "test:watch": "node --test --watch",
+    "typecheck": "tsc --noEmit",
+    "typecheck:watch": "tsc --noEmit --watch",
+    "security": "npm audit && npm run security:deps",
+    "security:deps": "npm audit --audit-level moderate",
+    "security:fix": "npm audit fix",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run lint && npm run typecheck && npm run test && npm run build",
+    "preversion": "npm run lint && npm run test",
+    "version": "npm run build && git add -A dist",
+    "postversion": "git push && git push --tags"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "yaml": "^2.5.0",
+    "ajv": "^8.17.1",
+    "inquirer": "^10.2.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.7.0",
+    "@types/node": "^20.14.9",
+    "@types/inquirer": "^9.0.7",
+    "@typescript-eslint/eslint-plugin": "^7.16.1",
+    "@typescript-eslint/parser": "^7.16.1",
+    "c8": "^9.1.0",
+    "eslint": "^9.7.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-security": "^2.1.1",
+    "esbuild": "^0.23.0",
+    "pkg": "^5.8.1",
+    "prettier": "^3.3.3",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4"
+  }
+}
