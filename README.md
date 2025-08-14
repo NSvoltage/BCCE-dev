@@ -1,12 +1,26 @@
 # BCCE - Bedrock Claude Code Enablement Kit
 
-> **Structured AI workflows for development teams using Claude Code with AWS Bedrock**
+> **Enterprise orchestration layer for Claude Code CLI when using AWS Bedrock as the model provider**
 
 [![Tests](https://img.shields.io/badge/tests-67%2F68%20passing-green)](#) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## What is BCCE?
 
-BCCE transforms ad-hoc Claude Code usage into structured, secure, auditable workflows for development teams.
+BCCE is an orchestration and governance framework that sits between developers and Claude Code CLI, transforming ad-hoc AI usage into structured, secure, auditable workflows for enterprise teams using AWS Bedrock.
+
+### Architecture Context
+
+```
+Developer → BCCE CLI → Claude Code CLI → AWS Bedrock → Claude Models
+            ↓              ↓                               ↑
+         Policies      Transcripts                   AWS Credentials
+```
+
+**Key Points:**
+- BCCE **orchestrates** Claude Code CLI (doesn't replace it)
+- Claude Code CLI **connects** to AWS Bedrock (not Anthropic API)
+- AWS Bedrock **provides** Claude model inference
+- BCCE **enforces** security policies and captures artifacts
 
 **Instead of this:**
 ```bash
