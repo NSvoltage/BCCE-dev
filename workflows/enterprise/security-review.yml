@@ -1,0 +1,183 @@
+version: 1
+workflow: "Enterprise Security Review"
+model: ${BEDROCK_MODEL_ID:-anthropic.claude-3-5-sonnet}
+guardrails: ["pii-detection", "content-filtering"]
+
+env:
+  max_runtime_seconds: 1800
+  artifacts_dir: .bcce_runs/${RUN_ID}
+  team: ${BCCE_TEAM:-security}
+  project: ${BCCE_PROJECT:-code-review}
+
+steps:
+  - id: scan_codebase
+    type: agent
+    policy:
+      timeout_seconds: 300
+      max_files: 100
+      max_edits: 0  # Read-only scan
+      allowed_paths: 
+        - "src/**"
+        - "lib/**"
+        - "app/**"
+        - "api/**"
+      cmd_allowlist: ["git", "grep", "find"]
+    prompt: |
+      Perform a comprehensive security scan of the codebase. Focus on:
+      1. Authentication and authorization patterns
+      2. Input validation and sanitization
+      3. SQL injection vulnerabilities
+      4. Cross-site scripting (XSS) risks
+      5. Sensitive data exposure
+      6. Dependency vulnerabilities
+      7. Insecure configurations
+      
+      Provide a detailed report with severity ratings (Critical, High, Medium, Low).
+    available_tools: [ReadFile, Search, Cmd]
+
+  - id: check_dependencies
+    type: cmd
+    command: "npm audit --json || yarn audit --json || pip-audit --format json || go list -json -m all | nancy sleuth || echo '{}'"
+    on_error: continue
+
+  - id: analyze_secrets
+    type: agent
+    policy:
+      timeout_seconds: 180
+      max_files: 50
+      max_edits: 0
+      allowed_paths: 
+        - "**/*.js"
+        - "**/*.ts"
+        - "**/*.py"
+        - "**/*.go"
+        - "**/*.java"
+        - "**/*.env*"
+        - "**/*.config*"
+      cmd_allowlist: []
+    prompt: |
+      Scan for hardcoded secrets, API keys, passwords, and sensitive configurations.
+      Check for:
+      - API keys and tokens
+      - Database credentials
+      - Private keys
+      - JWT secrets
+      - AWS/Cloud credentials
+      - Webhook URLs with embedded auth
+      
+      Report any findings with file location and recommended remediation.
+    available_tools: [ReadFile, Search]
+
+  - id: compliance_check
+    type: agent
+    policy:
+      timeout_seconds: 300
+      max_files: 30
+      max_edits: 0
+      allowed_paths: ["**"]
+      cmd_allowlist: []
+    prompt: |
+      Evaluate compliance with enterprise security standards:
+      
+      SOC2 Requirements:
+      - Access controls (CC6.1)
+      - Data encryption (CC6.7)
+      - Logging and monitoring (CC7.1)
+      - Change management (CC8.1)
+      
+      OWASP Top 10:
+      - Broken Access Control
+      - Cryptographic Failures
+      - Injection
+      - Insecure Design
+      - Security Misconfiguration
+      
+      Company Standards:
+      - All API endpoints must have authentication
+      - PII must be encrypted at rest
+      - Logs must not contain sensitive data
+      - All user input must be validated
+      
+      Generate a compliance scorecard with pass/fail for each requirement.
+    available_tools: [ReadFile, Search]
+
+  - id: generate_report
+    type: agent
+    policy:
+      timeout_seconds: 180
+      max_files: 10
+      max_edits: 3
+      allowed_paths: 
+        - "security-report.md"
+        - ".bcce_runs/**"
+      cmd_allowlist: []
+    prompt: |
+      Generate a comprehensive security review report combining all findings:
+      
+      1. Executive Summary
+         - Overall security posture
+         - Critical findings count
+         - Compliance status
+         - Recommended priority actions
+      
+      2. Detailed Findings
+         - Vulnerabilities by severity
+         - Code locations
+         - Remediation steps
+         - Effort estimates
+      
+      3. Compliance Report
+         - SOC2 compliance status
+         - OWASP coverage
+         - Company standards adherence
+      
+      4. Recommendations
+         - Immediate actions (Critical/High)
+         - Short-term improvements (Medium)
+         - Long-term enhancements (Low)
+      
+      5. Metrics
+         - Total issues found
+         - Issues by category
+         - Estimated remediation time
+         - Cost implications
+      
+      Create the report as 'security-report.md' in Markdown format.
+    available_tools: [ReadFile, WriteFile, Diff]
+
+  - id: create_tickets
+    type: agent
+    policy:
+      timeout_seconds: 120
+      max_files: 5
+      max_edits: 0
+      allowed_paths: 
+        - "security-report.md"
+        - ".bcce_runs/**"
+      cmd_allowlist: ["gh", "jira"]
+    prompt: |
+      Based on the security report, create tracking tickets for all Critical and High severity issues.
+      
+      For each issue:
+      - Create a clear, actionable title
+      - Include severity level
+      - Add detailed description with code location
+      - Set appropriate labels (security, priority)
+      - Suggest assignee based on code ownership
+      
+      Output a list of created tickets with their IDs and titles.
+    available_tools: [ReadFile, Cmd]
+    on_error: continue
+
+  - id: notify_team
+    type: cmd
+    command: |
+      echo "Security review complete. Report available at security-report.md"
+      echo "Total cost of security review: Check .bcce_runs/${RUN_ID}/*/cost-metrics.json"
+    on_error: continue
+
+# Cost optimization features:
+# - Uses Sonnet for complex analysis
+# - Could use Haiku for simple file scanning
+# - Implements caching for repeat scans
+# - Batches similar operations

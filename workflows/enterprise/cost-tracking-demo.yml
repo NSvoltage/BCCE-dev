@@ -1,0 +1,40 @@
+version: 1
+workflow: "Cost Tracking Demo"
+model: ${BEDROCK_MODEL_ID:-anthropic.claude-3-haiku}
+
+env:
+  max_runtime_seconds: 300
+  artifacts_dir: .bcce_runs/${RUN_ID}
+  team: ${BCCE_TEAM:-demo}
+  project: cost-tracking-demo
+
+steps:
+  - id: read_project_files
+    type: agent
+    policy:
+      timeout_seconds: 60
+      max_files: 10
+      max_edits: 1
+      allowed_paths: ["README.md", "package.json", "cli/package.json"]
+      cmd_allowlist: []
+    available_tools: [ReadFile]
+
+  - id: analyze_codebase
+    type: agent
+    policy:
+      timeout_seconds: 120
+      max_files: 20
+      max_edits: 1
+      allowed_paths: ["**/*.ts", "**/*.js", "**/*.md"]
+      cmd_allowlist: ["find"]
+    available_tools: [ReadFile, Search, Cmd]
+
+  - id: generate_summary
+    type: agent
+    policy:
+      timeout_seconds: 60
+      max_files: 5
+      max_edits: 1
+      allowed_paths: ["summary.md"]
+      cmd_allowlist: []
+    available_tools: [ReadFile]

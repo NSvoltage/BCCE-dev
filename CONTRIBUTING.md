@@ -1,14 +1,27 @@
 # Contributing to BCCE
 
-Thank you for your interest in contributing to the Bedrock Claude Code Enablement Kit! This guide will help you get started.
+Thank you for your interest in contributing to BCCE! This guide will help you get started with contributing to the project.
 
-## 🎯 **Project Vision**
+## 🚀 Quick Start for Contributors
 
-BCCE enables enterprise teams to roll out Claude Code on Amazon Bedrock quickly and safely, with:
-- 80% developer activation within 7 days
-- <10 minute time-to-first-use
-- 100% short-lived credentials
-- Future-proof model configuration
+### Development Setup
+
+```bash
+# 1. Fork and clone the repository
+git clone https://github.com/your-username/bcce-dev.git
+cd bcce-dev
+
+# 2. Install dependencies and build
+cd cli
+npm install
+npm run build
+
+# 3. Verify your setup
+./dist/bcce doctor
+
+# 4. Run tests to ensure everything works
+npm test
+```
 
 ## 🏗️ **Architecture Overview**
 

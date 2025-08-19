@@ -1,0 +1,69 @@
+version: 1
+workflow: "Real BCCE Repository Code Review"
+model: ${BEDROCK_MODEL_ID}
+guardrails: ["pii-basic","secrets-default"]
+
+env:
+  max_runtime_seconds: 3600
+  artifacts_dir: .bcce_runs/${RUN_ID}
+
+steps:
+  - id: analyze_architecture
+    type: agent
+    policy:
+      timeout_seconds: 600
+      max_files: 50
+      max_edits: 1
+      allowed_paths: ["cli/**", "workflows/**", "docs/**"]
+      cmd_allowlist: []
+    available_tools: [ReadFile, Search]
+
+  - id: review_cost_engine
+    type: agent
+    policy:
+      timeout_seconds: 400
+      max_files: 10
+      max_edits: 1
+      allowed_paths: ["cli/src/lib/intelligence/**"]
+      cmd_allowlist: []
+    available_tools: [ReadFile]
+
+  - id: review_aws_integrations
+    type: agent
+    policy:
+      timeout_seconds: 500
+      max_files: 20
+      max_edits: 1
+      allowed_paths: ["cli/src/lib/aws/**"]
+      cmd_allowlist: []
+    available_tools: [ReadFile, Search]
+
+  - id: review_cli_commands
+    type: agent
+    policy:
+      timeout_seconds: 400
+      max_files: 15
+      max_edits: 1
+      allowed_paths: ["cli/src/commands/**"]
+      cmd_allowlist: []
+    available_tools: [ReadFile, Search]
+
+  - id: security_review
+    type: agent
+    policy:
+      timeout_seconds: 500
+      max_files: 30
+      max_edits: 1
+      allowed_paths: ["cli/**"]
+      cmd_allowlist: []
+    available_tools: [ReadFile, Search]
+
+  - id: final_recommendations
+    type: agent
+    policy:
+      timeout_seconds: 300
+      max_files: 5
+      max_edits: 1
+      allowed_paths: ["cli/**"]
+      cmd_allowlist: []
+    available_tools: [ReadFile]

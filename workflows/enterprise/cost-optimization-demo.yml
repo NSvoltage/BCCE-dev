@@ -1,0 +1,93 @@
+version: 1
+workflow: "Cost Optimization Demo - Multi-Model Intelligence"
+model: ${BEDROCK_MODEL_ID:-anthropic.claude-3-5-sonnet}
+
+env:
+  max_runtime_seconds: 600
+  artifacts_dir: .bcce_runs/${RUN_ID}
+  team: ${BCCE_TEAM:-demo}
+  project: cost-optimization-demo
+
+steps:
+  - id: simple_task_with_haiku
+    type: agent
+    model: anthropic.claude-3-haiku
+    policy:
+      timeout_seconds: 30
+      max_files: 5
+      max_edits: 1
+      allowed_paths: ["README.md", "package.json"]
+      cmd_allowlist: []
+    available_tools: [ReadFile]
+
+  - id: medium_complexity_with_sonnet
+    type: agent
+    model: anthropic.claude-3-5-sonnet
+    policy:
+      timeout_seconds: 120
+      max_files: 20
+      max_edits: 1
+      allowed_paths: ["**/*.ts", "**/*.js", "**/*.md"]
+      cmd_allowlist: ["npm", "git"]
+    available_tools: [ReadFile, Search, Cmd]
+
+  - id: complex_analysis_with_opus
+    type: agent
+    model: anthropic.claude-3-opus
+    policy:
+      timeout_seconds: 300
+      max_files: 50
+      max_edits: 1
+      allowed_paths: ["**"]
+      cmd_allowlist: ["npm", "git", "find"]
+    available_tools: [ReadFile, Search, Cmd]
+
+  - id: cost_comparison_analysis
+    type: agent
+    model: anthropic.claude-3-5-sonnet
+    policy:
+      timeout_seconds: 60
+      max_files: 10
+      max_edits: 1
+      allowed_paths: 
+        - "cost-analysis.md"
+        - ".bcce_runs/**"
+      cmd_allowlist: []
+    available_tools: [ReadFile]
+
+  - id: generate_optimization_recommendations
+    type: agent
+    model: anthropic.claude-3-haiku
+    policy:
+      timeout_seconds: 30
+      max_files: 5
+      max_edits: 1
+      allowed_paths: 
+        - "optimization-recommendations.md"
+        - "cost-analysis.md"
+      cmd_allowlist: []
+    available_tools: [ReadFile]
+
+  - id: demo_summary
+    type: cmd
+    command: |
+      echo "=== BCCE Cost Optimization Demo Results ==="
+      echo ""
+      echo "Files created:"
+      ls -la cost-analysis.md optimization-recommendations.md 2>/dev/null || echo "Reports pending..."
+      echo ""
+      echo "Cost metrics available in:"
+      find .bcce_runs -name "cost-metrics.json" -exec echo "  {}" \;
+      echo ""
+      echo "Total workflow cost calculation:"
+      echo "Check the final cost in the workflow summary!"
+      echo ""
+      echo "This demo shows how BCCE intelligently routes tasks to optimal models"
+      echo "for maximum cost efficiency while maintaining quality."
+
+# This workflow demonstrates:
+# 1. Task complexity assessment
+# 2. Intelligent model routing
+# 3. Cost tracking and analysis
+# 4. Optimization recommendations
+# 5. ROI measurement for AI tool usage

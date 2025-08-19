@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import yaml from 'yaml';
 import { execSync, spawn } from 'node:child_process';
+import { costEngine } from './intelligence/cost-engine.js';
 
 export interface WorkflowStep {
   id: string;
@@ -282,6 +283,37 @@ export class StepExecutor {
         
         console.log(`    ${exitCode === 0 ? '✅' : '❌'} Agent step completed in ${duration}ms with exit code ${exitCode}`);
 
+        // Track costs for Claude Code usage
+        try {
+          // Extract token usage from response (looking for patterns in stdout)
+          const tokenMatch = stdout.match(/(?:tokens|usage)[:\s]*(\d+)\s*input[,\s]*(\d+)\s*output/i);
+          const inputTokens = tokenMatch ? parseInt(tokenMatch[1]) : this.estimateTokensFromText(transcript);
+          const outputTokens = tokenMatch ? parseInt(tokenMatch[2]) : this.estimateTokensFromText(stdout);
+          
+          const costMetrics = await costEngine.trackUsage(
+            { prompt: transcript, model: workflow.model || process.env.BEDROCK_MODEL_ID },
+            { 
+              usage: { 
+                input_tokens: inputTokens, 
+                output_tokens: outputTokens 
+              },
+              model: workflow.model || process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-5-sonnet'
+            },
+            {
+              workflowId: this.artifacts.runId,
+              stepId: step.id,
+              team: process.env.BCCE_TEAM,
+              project: process.env.BCCE_PROJECT
+            }
+          );
+          
+          // Save cost metrics to artifacts
+          this.artifacts.writeStepOutput(step.id, 'cost-metrics.json', JSON.stringify(costMetrics, null, 2));
+          console.log(`    💰 Step cost: $${costMetrics.totalCost.toFixed(4)} (${inputTokens} input, ${outputTokens} output tokens)`);
+        } catch (error) {
+          console.log(`    ⚠️ Cost tracking failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+
         // Save transcript and outputs
         transcript += `\n---\nExecution completed in ${duration}ms with exit code ${exitCode}\n`;
         
@@ -421,6 +453,12 @@ Keep it very brief.`;
     }
 
     return env;
+  }
+
+  // Helper method to estimate tokens from text (rough approximation)
+  private estimateTokensFromText(text: string): number {
+    // Rough approximation: 1 token ≈ 4 characters
+    return Math.ceil(text.length / 4);
   }
 
   // Check policy violations in Claude output
@@ -945,10 +983,42 @@ export class WorkflowRunner {
     console.log(`   Steps: ${completed}/${total} completed${failed > 0 ? `, ${failed} failed` : ''}`);
     console.log(`   Artifacts: ${this.artifacts.runDir}`);
     
+    // Display workflow cost if available
+    try {
+      const totalCost = this.calculateWorkflowCost();
+      if (totalCost > 0) {
+        console.log(`   💰 Total Cost: $${totalCost.toFixed(4)}`);
+      }
+    } catch (error) {
+      // Cost tracking is optional, don't fail on error
+    }
+    
     if (state.status === 'failed') {
       console.log('\n🔧 To resume from the failed step:');
       console.log(`   bcce workflow resume ${state.runId} --from ${state.workflow.steps[state.currentStepIndex]?.id}`);
     }
+  }
+
+  private calculateWorkflowCost(): number {
+    let totalCost = 0;
+    
+    try {
+      // Read cost metrics from all step directories
+      const stepDirs = fs.readdirSync(this.artifacts.runDir, { withFileTypes: true })
+        .filter(entry => entry.isDirectory());
+      
+      for (const dir of stepDirs) {
+        const costMetricsPath = path.join(this.artifacts.runDir, dir.name, 'cost-metrics.json');
+        if (fs.existsSync(costMetricsPath)) {
+          const metrics = JSON.parse(fs.readFileSync(costMetricsPath, 'utf-8'));
+          totalCost += metrics.totalCost || 0;
+        }
+      }
+    } catch (error) {
+      // Silently handle errors in cost calculation
+    }
+    
+    return totalCost;
   }
 
   static generateRunId(): string {

@@ -1,0 +1,230 @@
+version: 1
+workflow: "Enhanced PR Review with Cost Optimization"
+model: ${BEDROCK_MODEL_ID:-anthropic.claude-3-5-sonnet}
+guardrails: ["code-quality", "security-scan"]
+
+env:
+  max_runtime_seconds: 900
+  artifacts_dir: .bcce_runs/${RUN_ID}
+  team: ${BCCE_TEAM:-engineering}
+  project: ${BCCE_PROJECT:-pr-review}
+  pr_number: ${PR_NUMBER}
+  repo: ${GITHUB_REPOSITORY}
+
+steps:
+  - id: fetch_pr_details
+    type: cmd
+    command: |
+      gh pr view ${PR_NUMBER} --json title,body,author,files,additions,deletions,commits --repo ${GITHUB_REPOSITORY} > pr-details.json
+      gh pr diff ${PR_NUMBER} --repo ${GITHUB_REPOSITORY} > pr.diff
+    on_error: fail
+
+  - id: complexity_analysis
+    type: agent
+    policy:
+      timeout_seconds: 60
+      max_files: 5
+      max_edits: 0
+      allowed_paths: 
+        - "pr-details.json"
+        - "pr.diff"
+      cmd_allowlist: []
+    prompt: |
+      Analyze the PR complexity to determine the appropriate review model:
+      
+      Read pr-details.json and pr.diff to evaluate:
+      - Number of files changed
+      - Lines of code modified
+      - Complexity of changes (simple formatting vs logic changes)
+      - Risk level (critical paths, security-sensitive code)
+      
+      Output a JSON object with:
+      {
+        "complexity": "low|medium|high",
+        "recommended_model": "haiku|sonnet|opus",
+        "reasoning": "explanation",
+        "estimated_tokens": number,
+        "estimated_cost": number
+      }
+      
+      Use Haiku for simple changes, Sonnet for standard reviews, Opus for complex architectural changes.
+    available_tools: [ReadFile]
+    # This step uses the default model to analyze, then we switch based on recommendation
+
+  - id: code_review_optimized
+    type: agent
+    # Model selection based on complexity (would be dynamic in production)
+    model: ${REVIEW_MODEL:-anthropic.claude-3-5-sonnet}
+    policy:
+      timeout_seconds: 300
+      max_files: 50
+      max_edits: 0
+      allowed_paths: 
+        - "**/*.js"
+        - "**/*.ts"
+        - "**/*.py"
+        - "**/*.go"
+        - "**/*.java"
+        - "pr.diff"
+      cmd_allowlist: ["git", "npm", "yarn"]
+    prompt: |
+      Perform a comprehensive code review of the PR. Focus on:
+      
+      1. Code Quality
+         - Design patterns and architecture
+         - Code reusability and DRY principles
+         - Naming conventions
+         - Code complexity (cyclomatic complexity)
+      
+      2. Functionality
+         - Logic correctness
+         - Edge cases handling
+         - Error handling
+         - Performance implications
+      
+      3. Best Practices
+         - Language-specific idioms
+         - Framework conventions
+         - Documentation completeness
+         - Test coverage
+      
+      4. Security
+         - Input validation
+         - Authentication/authorization
+         - Data sanitization
+         - Dependency vulnerabilities
+      
+      Provide specific, actionable feedback with code suggestions where applicable.
+      Rate the PR: APPROVE, REQUEST_CHANGES, or COMMENT
+    available_tools: [ReadFile, Search, Cmd]
+
+  - id: test_impact_analysis
+    type: agent
+    policy:
+      timeout_seconds: 120
+      max_files: 30
+      max_edits: 0
+      allowed_paths: 
+        - "**/*test*"
+        - "**/*spec*"
+        - "pr.diff"
+      cmd_allowlist: ["npm", "jest", "pytest", "go"]
+    prompt: |
+      Analyze test coverage and impact:
+      
+      1. Check if new code has corresponding tests
+      2. Identify which existing tests might be affected
+      3. Suggest additional test cases needed
+      4. Estimate test coverage percentage
+      
+      Output recommendations for test improvements.
+    available_tools: [ReadFile, Search, Cmd]
+
+  - id: performance_check
+    type: agent
+    # Use Haiku for simple performance checks to save costs
+    model: anthropic.claude-3-haiku
+    policy:
+      timeout_seconds: 60
+      max_files: 10
+      max_edits: 0
+      allowed_paths: 
+        - "pr.diff"
+        - "**/*.js"
+        - "**/*.ts"
+      cmd_allowlist: []
+    prompt: |
+      Quick performance check:
+      - Look for obvious performance issues (nested loops, unnecessary re-renders, N+1 queries)
+      - Check for resource leaks
+      - Identify potentially expensive operations
+      
+      Brief report only - this is a quick scan.
+    available_tools: [ReadFile]
+
+  - id: generate_review_summary
+    type: agent
+    policy:
+      timeout_seconds: 120
+      max_files: 10
+      max_edits: 2
+      allowed_paths: 
+        - "review-summary.md"
+        - ".bcce_runs/**"
+      cmd_allowlist: []
+    prompt: |
+      Create a comprehensive PR review summary combining all analysis:
+      
+      ## PR Review Summary
+      
+      ### Overview
+      - PR Title and Number
+      - Author
+      - Changes summary (files, additions, deletions)
+      - Review decision: APPROVE/REQUEST_CHANGES/COMMENT
+      
+      ### Code Quality Assessment
+      - Overall score (1-10)
+      - Strengths
+      - Areas for improvement
+      
+      ### Critical Findings
+      - Must-fix issues before merge
+      - Security concerns
+      - Performance issues
+      
+      ### Suggestions
+      - Nice-to-have improvements
+      - Refactoring opportunities
+      - Documentation needs
+      
+      ### Test Coverage
+      - Current coverage
+      - Required additional tests
+      - Risk assessment
+      
+      ### Cost Analysis
+      - Review cost: $X.XX
+      - Model used: [model]
+      - Optimization applied: [description]
+      
+      Save as 'review-summary.md'
+    available_tools: [ReadFile, WriteFile]
+
+  - id: post_github_comment
+    type: cmd
+    command: |
+      gh pr comment ${PR_NUMBER} --repo ${GITHUB_REPOSITORY} --body-file review-summary.md
+    on_error: continue
+
+  - id: update_pr_labels
+    type: cmd
+    command: |
+      # Add appropriate labels based on review
+      if grep -q "APPROVE" review-summary.md; then
+        gh pr edit ${PR_NUMBER} --repo ${GITHUB_REPOSITORY} --add-label "approved"
+      elif grep -q "REQUEST_CHANGES" review-summary.md; then
+        gh pr edit ${PR_NUMBER} --repo ${GITHUB_REPOSITORY} --add-label "needs-changes"
+      fi
+      
+      # Add size labels
+      additions=$(jq -r '.additions' pr-details.json)
+      if [ $additions -lt 10 ]; then
+        gh pr edit ${PR_NUMBER} --repo ${GITHUB_REPOSITORY} --add-label "size/XS"
+      elif [ $additions -lt 50 ]; then
+        gh pr edit ${PR_NUMBER} --repo ${GITHUB_REPOSITORY} --add-label "size/S"
+      elif [ $additions -lt 200 ]; then
+        gh pr edit ${PR_NUMBER} --repo ${GITHUB_REPOSITORY} --add-label "size/M"
+      elif [ $additions -lt 500 ]; then
+        gh pr edit ${PR_NUMBER} --repo ${GITHUB_REPOSITORY} --add-label "size/L"
+      else
+        gh pr edit ${PR_NUMBER} --repo ${GITHUB_REPOSITORY} --add-label "size/XL"
+      fi
+    on_error: continue
+
+# Cost Optimization Features:
+# 1. Complexity-based model selection (Haiku for simple, Sonnet for complex)
+# 2. Separate performance check uses cheaper Haiku model
+# 3. Caches PR data to avoid re-fetching
+# 4. Batches related operations
+# 5. Tracks and reports actual costs

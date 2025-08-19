@@ -6,6 +6,9 @@ import { doctorCmd } from './commands/doctor/doctor.js';
 import { policyCmd } from './commands/policy/policy.js';
 import { workflowCmd } from './commands/workflow/workflow.js';
 import { modelsCmd } from './commands/models/models.js';
+import { costCmd } from './commands/cost/cost.js';
+import { analyticsCmd } from './commands/analytics/analytics.js';
+import { awsCmd } from './commands/aws/aws.js';
 
 const program = new Command();
 
@@ -26,6 +29,9 @@ program.addCommand(doctorCmd);
 program.addCommand(policyCmd);
 program.addCommand(modelsCmd);
 program.addCommand(workflowCmd);
+program.addCommand(costCmd);
+program.addCommand(analyticsCmd);
+program.addCommand(awsCmd);
 
 // Global error handling
 program.exitOverride((err) => {

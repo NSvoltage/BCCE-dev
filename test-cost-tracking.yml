@@ -1,0 +1,17 @@
+version: 1
+workflow: "Cost Tracking Test"
+model: anthropic.claude-3-haiku  # Use cheapest model for testing
+
+env:
+  max_runtime_seconds: 120
+
+steps:
+  - id: simple_test
+    type: agent
+    policy:
+      timeout_seconds: 30
+      max_files: 2
+      max_edits: 1
+      allowed_paths: ["README.md"]
+      cmd_allowlist: []
+    available_tools: [ReadFile]
