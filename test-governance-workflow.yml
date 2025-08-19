@@ -1,0 +1,31 @@
+version: 1
+workflow: "Test Governance Workflow"
+model: "${BEDROCK_MODEL_ID}"
+guardrails: ["pii-basic"]
+
+env:
+  max_runtime_seconds: 600
+  artifacts_dir: .bcce_runs/${RUN_ID}
+
+steps:
+  - id: security_scan
+    type: prompt
+    prompt_file: prompt.md
+    available_tools: [ReadFile, Search]
+    inputs:
+      paths: ["src/**"]
+      
+  - id: analysis
+    type: agent
+    policy:
+      timeout_seconds: 300
+      max_files: 10
+      max_edits: 5
+      allowed_paths: ["src/**", "*.ts", "*.js"]
+      cmd_allowlist: ["npm", "node"]
+    available_tools: [ReadFile, Search, Diff]
+    
+  - id: report
+    type: prompt
+    prompt_file: prompt.md
+    available_tools: [ReadFile]
