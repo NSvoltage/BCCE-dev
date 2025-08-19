@@ -21,6 +21,13 @@ export interface BcceConfig {
   };
   guardrails_arns?: string[];
   inference_profiles?: string[];
+  // Enterprise analytics configuration
+  analytics?: {
+    model: string;
+    estimatedUsers: number;
+    monthlyCostEstimate: number;
+    configuration: any;
+  };
 }
 
 const CONFIG_PATH = path.resolve('.bcce.config.json');

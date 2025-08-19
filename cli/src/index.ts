@@ -1,37 +1,35 @@
 import { Command } from 'commander';
-import { initCmd } from './commands/init/init.js';
-import { deployCmd } from './commands/deploy/deploy.js';
-import { packageCmd } from './commands/package/package.js';
+import { setupCmd } from './commands/setup/setup.js';
 import { doctorCmd } from './commands/doctor/doctor.js';
 import { policyCmd } from './commands/policy/policy.js';
-import { workflowCmd } from './commands/workflow/workflow.js';
-import { modelsCmd } from './commands/models/models.js';
 import { costCmd } from './commands/cost/cost.js';
-import { analyticsCmd } from './commands/analytics/analytics.js';
-import { awsCmd } from './commands/aws/aws.js';
+import { workflowCmd } from './commands/workflow/workflow.js';
+import { auditCmd } from './commands/audit/audit.js';
+import { demoCmd } from './commands/demo/demo.js';
+import { dashboardCmd } from './commands/dashboard/dashboard.js';
+import { deployCmd } from './commands/deploy/deploy.js';
 
 const program = new Command();
 
 program
   .name('bcce')
-  .description('Bedrock Claude Code Enablement Kit CLI')
-  .version('0.1.0')
+  .description('Enterprise Governance for AI Workflows')
+  .version('2.0.0')
   .configureHelp({
     sortSubcommands: true,
     showGlobalOptions: true
   });
 
-// Add commands
-program.addCommand(initCmd);
-program.addCommand(deployCmd);
-program.addCommand(packageCmd); 
+// Add core governance commands (8 total)
+program.addCommand(setupCmd);
 program.addCommand(doctorCmd);
+program.addCommand(deployCmd);
 program.addCommand(policyCmd);
-program.addCommand(modelsCmd);
-program.addCommand(workflowCmd);
 program.addCommand(costCmd);
-program.addCommand(analyticsCmd);
-program.addCommand(awsCmd);
+program.addCommand(workflowCmd);
+program.addCommand(auditCmd);
+program.addCommand(dashboardCmd);
+program.addCommand(demoCmd);
 
 // Global error handling
 program.exitOverride((err) => {

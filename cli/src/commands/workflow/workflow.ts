@@ -4,11 +4,85 @@ import path from 'node:path';
 import yaml from 'yaml';
 import Ajv from 'ajv';
 import { WorkflowRunner } from '../../lib/workflow-runner.js';
+import { ClaudeCodeAdapter } from '../../adapters/claude-code/adapter.js';
+import type { WorkflowAdapter, Workflow, GovernanceConfig } from '../../adapters/workflow-adapter.js';
+import { GovernanceEngine } from '../../governance/governance-engine.js';
 
 const ajv = new Ajv({ allErrors: true });
 
+// ANSI color codes for output
+const colors = {
+  reset: '\x1b[0m',
+  bright: '\x1b[1m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  red: '\x1b[31m',
+  cyan: '\x1b[36m',
+  gray: '\x1b[90m'
+};
+
+function getWorkflowAdapter(engineType: string): WorkflowAdapter {
+  switch (engineType) {
+    case 'claude_code':
+      return new ClaudeCodeAdapter();
+    case 'roast':
+      // TODO: Implement RoastAdapter
+      throw new Error('Roast adapter not yet implemented');
+    case 'custom':
+      // TODO: Implement CustomAdapter
+      throw new Error('Custom adapter not yet implemented');
+    default:
+      throw new Error(`Unknown workflow engine: ${engineType}`);
+  }
+}
+
+function displayExecutionResults(result: any) {
+  console.log(`\n${colors.bright}📊 Execution Results${colors.reset}`);
+  
+  // Status
+  const statusIcon = result.status === 'completed' ? '✅' :
+                     result.status === 'failed' ? '❌' :
+                     result.status === 'pending_approval' ? '⏳' : '🚫';
+  console.log(`   Status: ${statusIcon} ${result.status.toUpperCase()}`);
+  console.log(`   Workflow ID: ${colors.cyan}${result.workflowId}${colors.reset}`);
+  
+  // Governance summary
+  console.log(`\n${colors.bright}🏛️ Governance Summary${colors.reset}`);
+  console.log(`   Policies Applied: ${result.governance.policiesApplied.join(', ')}`);
+  console.log(`   Compliance Status: ${result.governance.complianceStatus ? '✅ Compliant' : '❌ Non-compliant'}`);
+  console.log(`   Audit Entries: ${result.governance.auditTrail.length}`);
+  
+  // Cost summary
+  console.log(`\n${colors.bright}💰 Cost Summary${colors.reset}`);
+  console.log(`   Total Cost: ${colors.cyan}$${result.governance.costSummary.totalCost}${colors.reset}`);
+  console.log(`   Token Count: ${result.governance.costSummary.tokenCount.toLocaleString()}`);
+  console.log(`   Duration: ${Math.round(result.governance.costSummary.duration / 1000)}s`);
+  
+  // Errors if any
+  if (result.errors && result.errors.length > 0) {
+    console.log(`\n${colors.bright}❌ Errors${colors.reset}`);
+    result.errors.forEach((error: string) => {
+      console.log(`   ${colors.red}•${colors.reset} ${error}`);
+    });
+  }
+  
+  // Audit trail preview
+  if (result.governance.auditTrail.length > 0) {
+    console.log(`\n${colors.bright}📋 Recent Audit Events${colors.reset}`);
+    result.governance.auditTrail.slice(-3).forEach((entry: any) => {
+      console.log(`   ${entry.timestamp.toLocaleTimeString()} - ${entry.event}`);
+    });
+    
+    if (result.governance.auditTrail.length > 3) {
+      console.log(`   ${colors.gray}... and ${result.governance.auditTrail.length - 3} more entries${colors.reset}`);
+    }
+  }
+  
+  console.log(`\n${colors.gray}✅ Full audit trail stored for compliance${colors.reset}`);
+}
+
 export const workflowCmd = new Command('workflow')
-  .description('Validate, run, resume, diagram, and scaffold ROAST-style workflows');
+  .description('Execute workflows with enterprise governance across multiple engines');
 
 // Validate command
 workflowCmd
@@ -99,12 +173,14 @@ workflowCmd
     }
   });
 
-// Run command
+// Run command with governance
 workflowCmd
   .command('run')
   .argument('<file>', 'Workflow YAML path')
+  .option('--engine <engine>', 'Workflow engine: claude_code|roast|custom', 'claude_code')
   .option('--dry-run', 'Validate and plan without executing')
   .option('--approve-all', 'Auto-approve all apply_diff steps (dangerous)')
+  .option('--governance', 'Apply enterprise governance policies', true)
   .action(async (file, opts) => {
     try {
       if (!fs.existsSync(file)) {
@@ -112,20 +188,70 @@ workflowCmd
         process.exit(1);
       }
 
-      // Generate unique run ID
-      const runId = WorkflowRunner.generateRunId();
-      const runner = new WorkflowRunner(runId);
+      console.log(`\n${colors.bright}🚀 Executing Workflow with Governance${colors.reset}`);
+      console.log(`${colors.gray}Engine: ${opts.engine}, File: ${file}${colors.reset}\n`);
+
+      // Load and parse workflow
+      const content = fs.readFileSync(file, 'utf-8');
+      const workflow: Workflow = yaml.parse(content);
+
+      // Get appropriate adapter
+      const adapter = getWorkflowAdapter(opts.engine);
       
-      // Execute workflow
-      const result = await runner.run(file, {
-        dryRun: opts.dryRun
-      });
+      // Configure governance
+      const governance: GovernanceConfig = {
+        policies: ['security', 'cost-control', 'compliance'],
+        approvalRequired: !opts.approveAll,
+        complianceLogging: opts.governance,
+        costControls: {
+          budgetLimit: parseFloat(process.env.BCCE_BUDGET_LIMIT || '100'),
+          timeoutMinutes: 30
+        },
+        auditLevel: 'comprehensive'
+      };
+
+      // Validate workflow first
+      console.log(`${colors.cyan}🔍 Validating workflow...${colors.reset}`);
+      const validation = await adapter.validate(workflow);
+      
+      if (!validation.valid) {
+        console.error(`${colors.red}❌ Workflow validation failed:${colors.reset}`);
+        validation.errors.forEach(error => {
+          console.error(`   ${colors.red}•${colors.reset} ${error}`);
+        });
+        process.exit(1);
+      }
+
+      if (validation.warnings.length > 0) {
+        console.log(`${colors.yellow}⚠️  Validation warnings:${colors.reset}`);
+        validation.warnings.forEach(warning => {
+          console.log(`   ${colors.yellow}•${colors.reset} ${warning}`);
+        });
+      }
+
+      console.log(`${colors.green}✅ Workflow validation passed${colors.reset}\n`);
+
+      // Execute with governance if not dry run
+      if (opts.dryRun) {
+        console.log(`${colors.cyan}📋 Dry run completed - workflow ready for execution${colors.reset}`);
+        console.log(`   Steps: ${workflow.steps.length}`);
+        console.log(`   Engine: ${opts.engine}`);
+        console.log(`   Governance: ${opts.governance ? 'Enabled' : 'Disabled'}`);
+        process.exit(0);
+      }
+
+      // Execute workflow with governance
+      console.log(`${colors.cyan}⚙️  Executing workflow with governance...${colors.reset}`);
+      const result = await adapter.executeWithGovernance(workflow, governance);
+
+      // Display results
+      displayExecutionResults(result);
       
       // Exit with appropriate code
       process.exit(result.status === 'completed' ? 0 : 1);
       
     } catch (error: any) {
-      console.error('❌ Workflow execution error:', error.message);
+      console.error(`${colors.red}❌ Workflow execution error: ${error.message}${colors.reset}`);
       process.exit(1);
     }
   });

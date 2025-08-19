@@ -5,6 +5,7 @@
 
 import { EventEmitter } from 'node:events';
 import crypto from 'node:crypto';
+import { STSClient, GetCallerIdentityCommand } from '@aws-sdk/client-sts';
 
 export interface IAMConfig {
   region?: string;
@@ -107,17 +108,20 @@ export class IAMIntegration extends EventEmitter {
   private identityProviders: Map<string, IdentityProvider> = new Map();
   private sessionCache: Map<string, STSCredentials> = new Map();
   private mockMode = false;
+  private sts?: STSClient;
+  private accountIdCache?: string;
 
   constructor(config: IAMConfig = {}) {
     super();
     this.config = {
       region: process.env.AWS_REGION || 'us-east-1',
-      accountId: process.env.AWS_ACCOUNT_ID || '123456789012',
+      accountId: process.env.AWS_ACCOUNT_ID || undefined, // Will fetch dynamically if not provided
       enableMFA: true,
       enableSessionTags: true,
       maxSessionDuration: 3600, // 1 hour default
       ...config,
     };
+    this.sts = new STSClient({ region: this.config.region });
     this.initializeIAM();
   }
 
@@ -127,6 +131,34 @@ export class IAMIntegration extends EventEmitter {
   enableMockMode(): void {
     this.mockMode = true;
     console.log('IAM Integration running in mock mode');
+  }
+
+  /**
+   * Get AWS account ID dynamically
+   */
+  private async getAccountId(): Promise<string> {
+    if (this.config.accountId) {
+      return this.config.accountId;
+    }
+
+    if (this.accountIdCache) {
+      return this.accountIdCache;
+    }
+
+    if (this.mockMode) {
+      return '123456789012'; // Mock account ID for testing
+    }
+
+    try {
+      const response = await this.sts!.send(new GetCallerIdentityCommand({}));
+      if (!response.Account) {
+        throw new Error('Unable to retrieve AWS account ID from STS');
+      }
+      this.accountIdCache = response.Account;
+      return this.accountIdCache;
+    } catch (error) {
+      throw new Error(`Failed to get AWS account ID: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   private async initializeIAM(): Promise<void> {

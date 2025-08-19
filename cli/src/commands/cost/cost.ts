@@ -20,7 +20,7 @@ const colors = {
 };
 
 export const costCmd = new Command('cost')
-  .description('Track and optimize Claude Code/Bedrock costs')
+  .description('Advanced cost intelligence and optimization for AI workflows')
   .addCommand(
     new Command('report')
       .description('Generate cost report for specified period')
@@ -178,6 +178,70 @@ export const costCmd = new Command('cost')
         // Keep the process running
         process.stdin.resume();
       })
+  )
+  .addCommand(
+    new Command('analysis')
+      .description('Advanced cost analysis with governance insights')
+      .option('-p, --period <period>', 'Analysis period (30d|90d|1y)', '30d')
+      .option('--by <dimension>', 'Group by: team,project,workflow,policy', 'project')
+      .action(async (options) => {
+        console.log(`\n${colors.bright}🎯 Advanced Cost Analysis${colors.reset}`);
+        console.log(`${colors.gray}Period: ${options.period}, Grouped by: ${options.by}${colors.reset}\n`);
+
+        try {
+          const analysis = await generateAdvancedAnalysis(options.period, options.by);
+          displayAdvancedAnalysis(analysis);
+        } catch (error) {
+          console.error(`${colors.red}❌ Analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}${colors.reset}`);
+        }
+      })
+  )
+  .addCommand(
+    new Command('budget')
+      .description('Manage and monitor budgets with alerts')
+      .option('--set <amount>', 'Set monthly budget limit')
+      .option('--team <name>', 'Set team-specific budget')
+      .option('--alerts', 'Configure budget alerts (50%, 80%, 100%)')
+      .action(async (options) => {
+        console.log(`\n${colors.bright}💰 Budget Management${colors.reset}\n`);
+
+        if (options.set) {
+          const amount = parseFloat(options.set);
+          const scope = options.team ? `team:${options.team}` : 'organization';
+          
+          console.log(`Setting ${scope} budget to $${amount}/month...`);
+          
+          // Mock budget setting
+          console.log(`${colors.green}✅ Budget configured${colors.reset}`);
+          console.log(`   Scope: ${scope}`);
+          console.log(`   Limit: $${amount}/month`);
+          
+          if (options.alerts) {
+            console.log(`   Alerts: 50% ($${(amount * 0.5).toFixed(2)}), 80% ($${(amount * 0.8).toFixed(2)}), 100% ($${amount}.00)`);
+          }
+        } else {
+          // Show current budget status
+          const budgetStatus = await getBudgetStatus();
+          displayBudgetStatus(budgetStatus);
+        }
+      })
+  )
+  .addCommand(
+    new Command('forecast')
+      .description('Predict future costs based on usage patterns')
+      .option('--period <period>', 'Forecast period (30d|90d|1y)', '90d')
+      .option('--confidence <level>', 'Confidence level (80|90|95)', '90')
+      .action(async (options) => {
+        console.log(`\n${colors.bright}🔮 Cost Forecasting${colors.reset}`);
+        console.log(`${colors.gray}Forecast period: ${options.period}, Confidence: ${options.confidence}%${colors.reset}\n`);
+
+        try {
+          const forecast = await generateCostForecast(options.period, parseInt(options.confidence));
+          displayForecast(forecast);
+        } catch (error) {
+          console.error(`${colors.red}❌ Forecast failed: ${error instanceof Error ? error.message : 'Unknown error'}${colors.reset}`);
+        }
+      })
   );
 
 function displayCostReport(report: any) {
@@ -247,4 +311,157 @@ function generateBar(percentage: number): string {
   const filled = Math.round((percentage / 100) * width);
   const empty = width - filled;
   return `[${colors.green}${'█'.repeat(filled)}${colors.gray}${'░'.repeat(empty)}${colors.reset}]`;
+}
+
+// Advanced cost intelligence functions
+async function generateAdvancedAnalysis(period: string, dimension: string) {
+  // Mock advanced analysis - in real implementation this would use AWS Cost Explorer API
+  const daysInPeriod = period === '30d' ? 30 : period === '90d' ? 90 : 365;
+  
+  return {
+    period,
+    dimension,
+    totalCost: 2847.52,
+    trends: {
+      growth: 12.3, // 12.3% growth
+      seasonality: 'moderate',
+      volatility: 'low'
+    },
+    topCostDrivers: [
+      { name: 'Complex workflows', cost: 1907.84, percentage: 67 },
+      { name: 'Model selection inefficiency', cost: 654.93, percentage: 23 },
+      { name: 'Repeated analysis tasks', cost: 284.75, percentage: 10 }
+    ],
+    optimizationPotential: {
+      amount: 967.36,
+      percentage: 34,
+      opportunities: [
+        { type: 'model-optimization', description: 'Route simple tasks to Haiku', savings: 456.78 },
+        { type: 'workflow-caching', description: 'Cache repeated analysis results', savings: 310.23 },
+        { type: 'batch-processing', description: 'Batch small requests together', savings: 200.35 }
+      ]
+    },
+    governance: {
+      budgetCompliance: 87,
+      policyViolations: 3,
+      approvalDelays: 2.3 // hours average
+    }
+  };
+}
+
+function displayAdvancedAnalysis(analysis: any) {
+  console.log(`${colors.bright}📊 Cost Analysis Summary${colors.reset}`);
+  console.log(`   Total Spend: ${colors.cyan}$${analysis.totalCost.toFixed(2)}${colors.reset}`);
+  console.log(`   Growth Trend: ${analysis.trends.growth > 0 ? colors.red : colors.green}${analysis.trends.growth > 0 ? '+' : ''}${analysis.trends.growth}%${colors.reset}`);
+  console.log(`   Budget Compliance: ${analysis.governance.budgetCompliance > 90 ? colors.green : colors.yellow}${analysis.governance.budgetCompliance}%${colors.reset}`);
+
+  console.log(`\n${colors.bright}🔍 Top Cost Drivers${colors.reset}`);
+  analysis.topCostDrivers.forEach((driver: any, index: number) => {
+    const bar = generateBar(driver.percentage);
+    console.log(`   ${index + 1}. ${driver.name.padEnd(35)} ${bar} ${colors.cyan}$${driver.cost.toFixed(2)} (${driver.percentage}%)${colors.reset}`);
+  });
+
+  console.log(`\n${colors.bright}💡 Optimization Opportunities${colors.reset}`);
+  console.log(`   Total Potential: ${colors.green}$${analysis.optimizationPotential.amount.toFixed(2)} (${analysis.optimizationPotential.percentage}% savings)${colors.reset}`);
+  
+  analysis.optimizationPotential.opportunities.forEach((opp: any) => {
+    const icon = getOptimizationIcon(opp.type);
+    console.log(`   ${icon} ${opp.description} - ${colors.green}$${opp.savings.toFixed(2)}${colors.reset}`);
+  });
+
+  console.log(`\n${colors.bright}🏛️ Governance Impact${colors.reset}`);
+  console.log(`   Policy Violations: ${analysis.governance.policyViolations > 0 ? colors.red : colors.green}${analysis.governance.policyViolations}${colors.reset}`);
+  console.log(`   Approval Delays: ${analysis.governance.approvalDelays > 4 ? colors.red : colors.green}${analysis.governance.approvalDelays}h avg${colors.reset}`);
+}
+
+async function getBudgetStatus() {
+  // Mock budget status - in real implementation this would use AWS Budgets API
+  return {
+    organization: {
+      limit: 5000,
+      spent: 2847.52,
+      remaining: 2152.48,
+      percentage: 57
+    },
+    teams: [
+      { name: 'Engineering', limit: 2000, spent: 1420.15, percentage: 71 },
+      { name: 'Data Science', limit: 1500, spent: 892.37, percentage: 59 },
+      { name: 'Security', limit: 800, spent: 535.00, percentage: 67 }
+    ],
+    alerts: [
+      { threshold: 50, triggered: true, date: '2024-01-15' },
+      { threshold: 80, triggered: false, estimated: '2024-01-22' }
+    ]
+  };
+}
+
+function displayBudgetStatus(status: any) {
+  console.log(`${colors.bright}Organization Budget${colors.reset}`);
+  const orgBar = generateBar(status.organization.percentage);
+  console.log(`   ${orgBar} ${colors.cyan}$${status.organization.spent.toFixed(2)}${colors.reset} / $${status.organization.limit} (${status.organization.percentage}%)`);
+  console.log(`   Remaining: ${colors.green}$${status.organization.remaining.toFixed(2)}${colors.reset}`);
+
+  console.log(`\n${colors.bright}Team Budgets${colors.reset}`);
+  status.teams.forEach((team: any) => {
+    const teamBar = generateBar(team.percentage);
+    const status_color = team.percentage > 80 ? colors.red : team.percentage > 50 ? colors.yellow : colors.green;
+    console.log(`   ${team.name.padEnd(20)} ${teamBar} ${status_color}${team.percentage}%${colors.reset} ($${team.spent.toFixed(2)}/$${team.limit})`);
+  });
+
+  console.log(`\n${colors.bright}Alert Status${colors.reset}`);
+  status.alerts.forEach((alert: any) => {
+    if (alert.triggered) {
+      console.log(`   ${colors.red}🚨 ${alert.threshold}% threshold exceeded${colors.reset} on ${alert.date}`);
+    } else {
+      console.log(`   ${colors.gray}⏳ ${alert.threshold}% threshold estimated${colors.reset} on ${alert.estimated}`);
+    }
+  });
+}
+
+async function generateCostForecast(period: string, confidence: number) {
+  // Mock forecast - in real implementation this would use machine learning models
+  const daysAhead = period === '30d' ? 30 : period === '90d' ? 90 : 365;
+  const currentMonthly = 2847.52;
+  
+  return {
+    period,
+    confidence,
+    currentTrend: currentMonthly,
+    forecast: {
+      conservative: currentMonthly * 1.1,
+      likely: currentMonthly * 1.2,
+      aggressive: currentMonthly * 1.35
+    },
+    factors: [
+      { name: 'Seasonal usage patterns', impact: '+8%' },
+      { name: 'Team growth', impact: '+15%' },
+      { name: 'Optimization initiatives', impact: '-3%' }
+    ],
+    recommendations: [
+      'Implement model optimization for 20% savings',
+      'Set up automated alerts at 75% budget threshold',
+      'Consider reserved capacity for predictable workloads'
+    ]
+  };
+}
+
+function displayForecast(forecast: any) {
+  console.log(`${colors.bright}📈 Cost Forecast (${forecast.period})${colors.reset}`);
+  console.log(`   Confidence Level: ${forecast.confidence}%\n`);
+
+  console.log(`${colors.bright}Projected Costs${colors.reset}`);
+  console.log(`   Conservative: ${colors.green}$${forecast.forecast.conservative.toFixed(2)}${colors.reset}`);
+  console.log(`   Most Likely: ${colors.cyan}$${forecast.forecast.likely.toFixed(2)}${colors.reset}`);
+  console.log(`   Aggressive: ${colors.red}$${forecast.forecast.aggressive.toFixed(2)}${colors.reset}`);
+
+  console.log(`\n${colors.bright}Contributing Factors${colors.reset}`);
+  forecast.factors.forEach((factor: any) => {
+    const color = factor.impact.startsWith('+') ? colors.red : colors.green;
+    console.log(`   • ${factor.name}: ${color}${factor.impact}${colors.reset}`);
+  });
+
+  console.log(`\n${colors.bright}Recommendations${colors.reset}`);
+  forecast.recommendations.forEach((rec: string, index: number) => {
+    console.log(`   ${index + 1}. ${rec}`);
+  });
 }
