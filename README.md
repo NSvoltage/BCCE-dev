@@ -15,45 +15,49 @@ BCCE extends the AWS Solutions Library's "Guidance for Claude Code with Amazon B
 - **Compliance Automation** - SOC2, HIPAA, PCI-DSS frameworks
 - **Automated Deployment** - Complete setup in under 30 minutes
 
-## Demo Walkthrough
+## Demo
 
-### Step 1: Deploy Infrastructure
+### Quick Demo
+```bash
+# Run the interactive demo
+$ python3 create-demo-gif.py
+
+# Or try the simple deployment simulation
+$ ./enterprise/simple-deploy.sh YourCompany
+```
+
+### Step-by-Step Deployment
+
+**1. Deploy Infrastructure**
 ```bash
 $ git clone https://github.com/NSvoltage/BCCE-dev.git && cd BCCE-dev
-$ ./enterprise/deploy-layered-integration.sh --organization-name 'YourCompany'
+$ ./enterprise/simple-deploy.sh YourCompany
 
-🚀 Deploying AWS infrastructure...
-✅ Cognito User Pool created
+🚀 BCCE Simple Deployment Demo
+✅ Cognito User Pool created: bcce-YourCompany-pool
 ✅ IAM roles configured
 ✅ S3 analytics bucket ready
-✅ Deployment complete in 28 minutes
+✅ Department budgets configured
 ```
 
-### Step 2: Configure Identity Provider
+**2. Test CLI Functionality**
 ```bash
-$ ./enterprise/identity-provider-configurator.py --provider-type adfs
+$ cd cli && npm install && npm run build
+$ AWS_REGION=us-east-1 ./dist/bcce doctor
 
-🔐 Configuring Active Directory integration...
-✅ SAML metadata imported
-✅ Attribute mapping configured
-✅ SSO authentication ready
+🩺 BCCE Doctor Report
+✅ AWS_REGION: Set to: us-east-1
+✅ Claude CLI: Found: 1.0.85 (Claude Code)
+✅ Core functionality ready
 ```
 
-### Step 3: Onboard Developers
+**3. Run Tests**
 ```bash
-$ ./enterprise/unified-onboarding-enhanced.py \
-    --email dev@company.com \
-    --department engineering \
-    --access-tier integration
-
-👥 Creating developer account...
-✅ User created in Cognito
-✅ Department budget assigned ($500/month)
-✅ Access tier: Integration
-✅ Developer ready to use Claude Code
+$ npm test -- --testPathPattern="governance"
+✅ 24 governance tests passed
+✅ Policy enforcement working
+✅ Budget controls validated
 ```
-
-**Result:** Enterprise Claude Code with complete governance in 30 minutes.
 
 ## Quick Start
 
@@ -134,9 +138,9 @@ Supports 6 major enterprise identity systems:
 
 | Tier | Budget Limit | Models Available | Use Case |
 |------|-------------|------------------|----------|
-| **Sandbox** | $100/month | Claude 3 Haiku | Development, testing |
-| **Integration** | $500/month | Haiku, Sonnet | Integration testing, staging |
-| **Production** | $2000/month | Haiku, Sonnet, Opus | Production workloads |
+| **Developer** | $100/month | Claude 3 Haiku | Individual development |
+| **Team** | $500/month | Haiku, Sonnet | Team projects, testing |
+| **Enterprise** | $1000/month | Haiku, Sonnet | Production workloads |
 
 ## Documentation
 

@@ -2,7 +2,7 @@
  * Unit Tests for AWS Integrations
  */
 
-import { describe, test, expect, beforeEach, jest } from '@jest/globals';
+import { describe, test, expect, beforeEach } from '@jest/globals';
 import { CloudWatchIntegration } from '../../src/lib/aws/cloudwatch-integration';
 import { createS3Storage } from '../../src/lib/aws/s3-storage';
 import { EventBridgeOrchestrator } from '../../src/lib/aws/eventbridge-orchestrator';
@@ -20,6 +20,8 @@ describe('CloudWatchIntegration', () => {
     test('should publish cost metrics correctly', async () => {
       const costMetrics = {
         tokenUsage: { inputTokens: 1000, outputTokens: 500 },
+        inputCost: 0.02,
+        outputCost: 0.03,
         totalCost: 0.05,
         model: 'claude-3-haiku',
         metadata: { team: 'test', workflowId: 'test-workflow' }

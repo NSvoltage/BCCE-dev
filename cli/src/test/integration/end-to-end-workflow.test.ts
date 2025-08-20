@@ -215,7 +215,6 @@ describe('End-to-End Workflow Integration', () => {
       fs.writeFileSync(promptPath, 'Test prompt for compliance validation');
 
       // Mock workflow runner to avoid actual execution
-      const originalRun = adapter['convertToRunnerFormat'];
       adapter['convertToRunnerFormat'] = () => ({
         version: 1,
         workflow: compliantWorkflow.workflow,
@@ -262,19 +261,8 @@ describe('End-to-End Workflow Integration', () => {
         ]
       };
 
-      const governance: GovernanceConfig = {
-        policies: ['security', 'compliance'],
-        approvalRequired: true,
-        complianceLogging: true,
-        costControls: {
-          budgetLimit: 100,
-          timeoutMinutes: 60
-        },
-        auditLevel: 'comprehensive'
-      };
-
       // Test approval request creation
-      const approvalId = await governanceEngine.requestApproval(
+      await governanceEngine.requestApproval(
         highRiskWorkflow,
         'High-risk production deployment requiring approval',
         'test-user'

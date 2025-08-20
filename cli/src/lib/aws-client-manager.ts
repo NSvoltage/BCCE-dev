@@ -194,7 +194,7 @@ export class AWSClientManager {
    * Clear all client pools (useful for testing)
    */
   clearPools(): void {
-    for (const [poolKey, pool] of this.clientPools.entries()) {
+    for (const [, pool] of this.clientPools.entries()) {
       for (const entry of pool) {
         try {
           entry.client.destroy?.();

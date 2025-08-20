@@ -103,7 +103,7 @@ describe('CostIntelligenceEngine', () => {
         { usage: { input_tokens: 10, output_tokens: 5 } }
       );
       
-      const recommendations = await costEngine.generateOptimizationRecommendations();
+      const recommendations = await costEngine.generateReport();
       
       expect(recommendations).toContainEqual(
         expect.objectContaining({
@@ -122,7 +122,7 @@ describe('CostIntelligenceEngine', () => {
         );
       }
       
-      const recommendations = await costEngine.generateOptimizationRecommendations();
+      const recommendations = await costEngine.generateReport();
       
       expect(recommendations).toContainEqual(
         expect.objectContaining({
@@ -140,7 +140,7 @@ describe('CostIntelligenceEngine', () => {
         );
       }
       
-      const recommendations = await costEngine.generateOptimizationRecommendations();
+      const recommendations = await costEngine.generateReport();
       
       expect(recommendations).toContainEqual(
         expect.objectContaining({
@@ -158,7 +158,10 @@ describe('CostIntelligenceEngine', () => {
         { usage: { input_tokens: 1000, output_tokens: 1000 } }
       );
       
-      const report = await costEngine.generateCostReport(7);
+      const report = await costEngine.generateReport(
+        new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        new Date()
+      );
       
       expect(report).toHaveProperty('period');
       expect(report.period.days).toBe(7);
@@ -175,7 +178,10 @@ describe('CostIntelligenceEngine', () => {
         );
       }
       
-      const report = await costEngine.generateCostReport(7);
+      const report = await costEngine.generateReport(
+        new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        new Date()
+      );
       
       expect(report.summary.averageDailyCost).toBeGreaterThan(0);
       expect(report.summary.averageDailyCost).toBeLessThan(report.summary.totalCost);
@@ -192,7 +198,10 @@ describe('CostIntelligenceEngine', () => {
         { usage: { input_tokens: 1000, output_tokens: 1000 } }
       );
       
-      const report = await costEngine.generateCostReport(7);
+      const report = await costEngine.generateReport(
+        new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        new Date()
+      );
       
       expect(report.breakdown.byModel).toHaveProperty('claude-3-haiku');
       expect(report.breakdown.byModel).toHaveProperty('claude-3-5-sonnet');
@@ -225,7 +234,7 @@ describe('CostIntelligenceEngine', () => {
         { usage: { input_tokens: 10, output_tokens: 10 } }
       );
       
-      costEngine.generateOptimizationRecommendations();
+      costEngine.generateReport();
     });
   });
 
