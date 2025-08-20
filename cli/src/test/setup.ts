@@ -10,16 +10,7 @@ process.env.NODE_ENV = 'test';
 process.env.AWS_REGION = 'us-east-1';
 process.env.BEDROCK_MODEL_ID = 'claude-3-5-sonnet-test';
 
-// Mock AWS SDK calls for unit tests
-jest.mock('@aws-sdk/client-bedrock', () => ({
-  BedrockClient: jest.fn(),
-  ListFoundationModelsCommand: jest.fn(),
-}));
-
-jest.mock('@aws-sdk/client-cloudwatch', () => ({
-  CloudWatchClient: jest.fn(),
-  PutMetricDataCommand: jest.fn(),
-}));
+// Mock AWS SDK calls for unit tests (only mock what exists in package.json)
 
 jest.mock('@aws-sdk/client-s3', () => ({
   S3Client: jest.fn(),

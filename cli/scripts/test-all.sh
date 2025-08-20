@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# BCCE Comprehensive Test Runner
-# Runs all tests including unit tests, integration tests, and CLI verification
+# BCCE Comprehensive Test Script
+# Runs all test suites with proper environment setup and validation
 
 set -e
 
 echo "🧪 BCCE Comprehensive Test Suite"
-echo "================================"
-echo
+echo "=================================="
+echo ""
 
 # Colors for output
 RED='\033[0;31m'

@@ -7,7 +7,15 @@ module.exports = {
     '**/?(*.)+(spec|test).ts'
   ],
   transform: {
-    '^.+\\.ts$': 'ts-jest',
+    '^.+\\.ts$': ['ts-jest', {
+      useESM: true,
+      tsconfig: {
+        module: 'esnext',
+        target: 'es2020',
+        strict: false,
+        skipLibCheck: true
+      }
+    }],
   },
   collectCoverageFrom: [
     'src/**/*.ts',
@@ -25,11 +33,6 @@ module.exports = {
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   extensionsToTreatAsEsm: ['.ts'],
-  globals: {
-    'ts-jest': {
-      useESM: true
-    }
-  },
   testTimeout: 30000,
   maxWorkers: 1,
   verbose: true

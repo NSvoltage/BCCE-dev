@@ -1,0 +1,24 @@
+{
+  "name": "bcce-remotion-demo",
+  "version": "1.0.0",
+  "description": "BCCE Enterprise Integration Demo Videos using Remotion",
+  "scripts": {
+    "start": "remotion studio",
+    "build": "remotion render BCCEDemo out/bcce-demo.mp4",
+    "preview": "remotion preview BCCEDemo --props='{}'",
+    "render:startup": "remotion render StartupDemo out/startup-demo.mp4",
+    "render:enterprise": "remotion render EnterpriseDemo out/enterprise-demo.mp4",
+    "render:all": "npm run render:startup && npm run render:enterprise"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.0",
+    "@remotion/player": "^4.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "remotion": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "typescript": "^5.0.0"
+  }
+}
